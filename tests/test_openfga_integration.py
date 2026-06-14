@@ -21,14 +21,13 @@ pytestmark = pytest.mark.skipif(not URL, reason="set INTENTGUARD_TEST_OPENFGA_UR
 
 
 @pytest.fixture
-def backend_ids():
+async def backend_ids():
     pytest.importorskip("openfga_sdk")
-    import asyncio
 
     from engine.pdp.openfga import bootstrap
 
     try:
-        return asyncio.get_event_loop().run_until_complete(bootstrap(URL))
+        return await bootstrap(URL)
     except Exception as exc:  # server unreachable -> skip rather than fail
         pytest.skip(f"OpenFGA unreachable: {exc}")
 

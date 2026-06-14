@@ -32,3 +32,44 @@ jobs:
 
       - name: Run injection demo (end-to-end smoke test)
         run: python examples/demo-injection/demo.py
+
+  openfga-integration:
+    # Exercises the real OpenFGA backend. The default `test` job above stays
+    # network-free; this job stands up OpenFGA and runs the opt-in integration
+    # test against it.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install (with the openfga extra)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,openfga]"
+
+      - name: Start OpenFGA
+        run: |
+          docker run -d --name openfga -p 8080:8080 \
+            -e OPENFGA_DATASTORE_ENGINE=memory \
+            -e OPENFGA_LOG_LEVEL=error \
+            openfga/openfga:latest run
+
+      - name: Wait for OpenFGA to be healthy
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/healthz >/dev/null; then
+              echo "OpenFGA is ready"; exit 0
+            fi
+            sleep 1
+          done
+          echo "OpenFGA did not become healthy"; docker logs openfga; exit 1
+
+      - name: Run OpenFGA integration tests
+        env:
+          INTENTGUARD_TEST_OPENFGA_URL: http://localhost:8080
+        run: pytest tests/test_openfga_integration.py -v
