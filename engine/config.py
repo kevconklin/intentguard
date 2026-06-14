@@ -45,6 +45,8 @@ class EngineConfig:
     tool_registry: ToolRegistry = field(default_factory=default_registry)
     enforce_tool_allowlist: bool = True
     intent_parser: str = "mock"
+    provisioning_token: str | None = None
+    require_provisioning_auth: bool = False
 
     @staticmethod
     def from_env() -> "EngineConfig":
@@ -80,4 +82,9 @@ class EngineConfig:
             ).lower()
             not in {"0", "false", "no"},
             intent_parser=os.environ.get("INTENTGUARD_INTENT_PARSER", "mock"),
+            provisioning_token=os.environ.get("INTENTGUARD_PROVISIONING_TOKEN") or None,
+            require_provisioning_auth=os.environ.get(
+                "INTENTGUARD_REQUIRE_PROVISIONING_AUTH", "false"
+            ).lower()
+            in {"1", "true", "yes"},
         )

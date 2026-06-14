@@ -115,6 +115,8 @@ uvicorn engine.api.server:app
 | `INTENTGUARD_ENFORCE_TOOL_ALLOWLIST` | `true` | deny tools not in the registry (`unknown_tool`) |
 | `INTENTGUARD_INTENT_PARSER` | `mock` | parser for `/v1/sessions:parse` — `mock` or `anthropic` |
 | `INTENTGUARD_ANTHROPIC_MODEL` | `claude-sonnet-4-6` | model for the Anthropic intent parser |
+| `INTENTGUARD_PROVISIONING_TOKEN` | — | Bearer token required to call the provisioning (write) endpoints |
+| `INTENTGUARD_REQUIRE_PROVISIONING_AUTH` | `false` | fail closed (refuse writes) if no provisioning token is set |
 
 ## The decision contract (v1)
 

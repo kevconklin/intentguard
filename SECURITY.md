@@ -53,9 +53,21 @@ These are treated as the spec and verified in `tests/`:
    (`test_decide_contract.py`)
 5. **Observe vs enforce is one flag.** Default `observe` always allows and logs;
    `enforce` returns real decisions. (`test_injection_scenario.py`)
+6. **Authenticated write path.** The provisioning endpoints (`POST /v1/sessions`,
+   `POST /v1/sessions:parse`) — the only paths that grant permissions — require a
+   shared-secret Bearer token (constant-time compared) when one is configured.
+   The read path (`/v1/decide`) is never gated by it and never gains a write
+   capability. (`test_provisioning_auth.py`)
 
 ## Operational guidance
 
+- **Authenticate the write path.** Set `INTENTGUARD_PROVISIONING_TOKEN` so only
+  the trusted orchestrator can provision; rotate it like any secret. For strict
+  deployments set `INTENTGUARD_REQUIRE_PROVISIONING_AUTH=true` so a missing token
+  fails closed (writes refused) instead of running open. The engine logs a loud
+  warning at startup whenever the write path is left unauthenticated.
+  Defence in depth: also network-isolate the provisioning endpoints to the
+  orchestrator (and consider mTLS at the ingress).
 - Run in `observe` mode first to measure would-be denials, then switch to
   `enforce`.
 - Keep `INTENTGUARD_PDP_TIMEOUT_SECONDS` low enough that a stalled store fails
