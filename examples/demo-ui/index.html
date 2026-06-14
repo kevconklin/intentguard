@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>IntentGuard — demo</title>
+<style>
+  :root {
+    --bg:#0f1117; --panel:#171a23; --line:#262b38; --ink:#e6e9ef; --muted:#8b93a7;
+    --allow:#1f9d57; --deny:#d63b3b; --escalate:#d99a1e; --accent:#5b8cff;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+    font:14px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  header { padding:18px 24px; border-bottom:1px solid var(--line);
+    display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0; letter-spacing:.3px; }
+  header .tag { color:var(--muted); font-size:13px; }
+  .mode { margin-left:auto; display:flex; align-items:center; gap:10px; }
+  .switch { display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .switch button { background:var(--panel); color:var(--muted); border:0; padding:7px 14px;
+    cursor:pointer; font-weight:600; }
+  .switch button.on { background:var(--accent); color:#fff; }
+  main { display:grid; grid-template-columns:1fr 1fr; gap:18px; padding:24px; max-width:1200px; }
+  @media (max-width:880px){ main{ grid-template-columns:1fr; } }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:18px; }
+  .panel h2 { margin:0 0 4px; font-size:14px; }
+  .panel .sub { color:var(--muted); font-size:12px; margin-bottom:14px; }
+  label { display:block; color:var(--muted); font-size:12px; margin:10px 0 4px; }
+  input, select { width:100%; background:var(--bg); color:var(--ink);
+    border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:13px; }
+  .row { display:grid; grid-template-columns:1fr 1fr auto; gap:8px; align-items:end; margin-bottom:8px; }
+  .row .x { background:transparent; border:1px solid var(--line); color:var(--muted);
+    border-radius:8px; padding:8px 10px; cursor:pointer; }
+  button.act { background:var(--accent); color:#fff; border:0; border-radius:8px;
+    padding:10px 14px; font-weight:600; cursor:pointer; margin-top:12px; }
+  button.ghost { background:transparent; color:var(--accent); border:1px dashed var(--line); }
+  button.danger { background:#2a1414; color:#ff8e8e; border:1px solid #5a2222; }
+  .btnrow { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .verdict { margin-top:14px; border-radius:10px; padding:16px; border:1px solid var(--line);
+    background:var(--bg); display:none; }
+  .verdict.show { display:block; }
+  .badge { display:inline-block; font-weight:800; letter-spacing:.5px; padding:6px 12px;
+    border-radius:8px; font-size:16px; }
+  .badge.allow{background:rgba(31,157,87,.18);color:#5fe39a;border:1px solid var(--allow);}
+  .badge.deny{background:rgba(214,59,59,.18);color:#ff9a9a;border:1px solid var(--deny);}
+  .badge.escalate{background:rgba(217,154,30,.18);color:#ffd27a;border:1px solid var(--escalate);}
+  .kv { color:var(--muted); font-size:12px; margin-top:10px; }
+  .kv b { color:var(--ink); font-weight:600; }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th,td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+  td.dec { font-weight:700; }
+  td.dec.allow{color:#5fe39a;} td.dec.deny{color:#ff9a9a;} td.dec.escalate{color:#ffd27a;}
+  .threats { color:var(--muted); font-size:11px; }
+  .pill { font-size:11px; color:var(--muted); border:1px solid var(--line); border-radius:999px; padding:1px 8px; }
+  .note { color:var(--muted); font-size:12px; margin-top:6px; }
+  code { background:var(--bg); border:1px solid var(--line); border-radius:5px; padding:1px 5px; }
+  .step { font-size:11px; color:var(--accent); font-weight:700; letter-spacing:.6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🛡️ IntentGuard</h1>
+  <span class="tag">deterministic intent authorization for AI agents</span>
+  <div class="mode">
+    <span class="tag">mode</span>
+    <div class="switch" id="modeSwitch">
+      <button data-mode="observe" class="on">observe</button>
+      <button data-mode="enforce">enforce</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- 1. PROVISION -->
+  <section class="panel">
+    <div class="step">TRUSTED PATH · ONCE, UP FRONT</div>
+    <h2>1 · Provision intent</h2>
+    <div class="sub">The user's request fixes what's allowed — <b>before</b> the agent reads any untrusted content.</div>
+
+    <div class="btnrow">
+      <div style="flex:1"><label>Session id</label><input id="session" value="conv-42" /></div>
+      <div style="flex:1"><label>Subject</label><input id="subject" value="user:alice" /></div>
+    </div>
+
+    <label>Allowed actions <span class="pill">tool → resource</span></label>
+    <div id="actions"></div>
+    <button class="act ghost" id="addAction">+ add action</button>
+    <button class="act" id="provision">Provision session ✓</button>
+    <div class="note" id="provNote"></div>
+  </section>
+
+  <!-- 2. ATTEMPT -->
+  <section class="panel">
+    <div class="step">UNTRUSTED PATH · PER TOOL CALL</div>
+    <h2>2 · Agent attempts a tool call</h2>
+    <div class="sub">Each call is checked against the frozen intent. No LLM — a deterministic yes/no.</div>
+
+    <label>Tool</label>
+    <select id="tool">
+      <option value="email.send">email.send</option>
+      <option value="calendar.read">calendar.read</option>
+      <option value="file.write">file.write</option>
+      <option value="http.get">http.get</option>
+    </select>
+    <label id="argLabel">Recipient (to)</label>
+    <input id="argValue" value="bob@example.com" />
+
+    <div class="btnrow">
+      <button class="act" id="send">Attempt call →</button>
+      <button class="act danger" id="inject">⚠️ Simulate injection → attacker@evil.com</button>
+    </div>
+
+    <div class="verdict" id="verdict">
+      <span class="badge" id="badge"></span>
+      <div class="kv" id="verdictKv"></div>
+    </div>
+  </section>
+
+  <!-- 3. AUDIT -->
+  <section class="panel" style="grid-column:1 / -1">
+    <h2>3 · Append-only audit log</h2>
+    <div class="sub">Every decision, immutable, tagged to OWASP Agentic Top 10 threats. This is your security telemetry.</div>
+    <table>
+      <thead><tr><th>decision</th><th>tool → resource</th><th>reason</th><th>mode</th><th>would-have</th><th>OWASP threats</th></tr></thead>
+      <tbody id="audit"><tr><td colspan="6" class="note">No decisions yet — provision a session, then attempt a call.</td></tr></tbody>
+    </table>
+  </section>
+</main>
+
+<script>
+const ARG_KEYS = { "email.send":"to", "calendar.read":null, "file.write":"path", "http.get":"url" };
+const ARG_LABELS = { "to":"Recipient (to)", "path":"Path", "url":"URL" };
+let mode = "observe";
+
+// --- mode toggle ---
+document.querySelectorAll("#modeSwitch button").forEach(b => b.onclick = () => {
+  mode = b.dataset.mode;
+  document.querySelectorAll("#modeSwitch button").forEach(x => x.classList.toggle("on", x===b));
+});
+
+// --- provisioning action rows ---
+const actionsEl = document.getElementById("actions");
+function addRow(tool="email.send", resource="bob@example.com") {
+  const div = document.createElement("div");
+  div.className = "row";
+  div.innerHTML = `
+    <select class="t">${Object.keys(ARG_KEYS).map(t=>`<option ${t===tool?"selected":""}>${t}</option>`).join("")}</select>
+    <input class="r" placeholder="resource (blank = any)" value="${resource}" />
+    <button class="x">✕</button>`;
+  div.querySelector(".x").onclick = () => div.remove();
+  actionsEl.appendChild(div);
+}
+addRow("email.send","bob@example.com");
+addRow("calendar.read","");
+document.getElementById("addAction").onclick = () => addRow();
+
+// --- tool select updates the argument label ---
+const toolEl = document.getElementById("tool");
+toolEl.onchange = () => {
+  const key = ARG_KEYS[toolEl.value];
+  document.getElementById("argLabel").textContent = key ? ARG_LABELS[key] : "(no arguments)";
+  document.getElementById("argValue").disabled = !key;
+  document.getElementById("argValue").value = key ? document.getElementById("argValue").value : "";
+};
+
+async function provision() {
+  const allowed_actions = [...actionsEl.querySelectorAll(".row")].map(row => ({
+    tool: row.querySelector(".t").value,
+    resource: row.querySelector(".r").value.trim() || null,
+  }));
+  const body = {
+    session_id: document.getElementById("session").value,
+    subject: document.getElementById("subject").value,
+    allowed_actions,
+  };
+  const r = await fetch("/v1/sessions", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(body)});
+  const j = await r.json();
+  document.getElementById("provNote").textContent = `✔ provisioned ${j.grants_written} grants for ${body.subject}`;
+}
+
+async function decide(tool, value) {
+  const key = ARG_KEYS[tool];
+  const args = key ? { [key]: value } : {};
+  const body = {
+    session_id: document.getElementById("session").value,
+    subject: document.getElementById("subject").value,
+    tool, arguments: args, mode_override: mode,
+  };
+  const r = await fetch("/v1/decide", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(body)});
+  const v = await r.json();
+  showVerdict(v);
+  await refreshAudit();
+}
+
+function showVerdict(v) {
+  const badge = document.getElementById("badge");
+  badge.className = "badge " + v.decision;
+  badge.textContent = v.decision.toUpperCase();
+  let kv = `reason <b>${v.reason}</b> &nbsp;·&nbsp; effective mode <b>${v.effective_mode}</b>`;
+  if (v.would_have_decided) kv += ` &nbsp;·&nbsp; would have <b>${v.would_have_decided}</b>`;
+  if (v.escalation_prompt) kv += `<br><br>🧑 <b>${v.escalation_prompt}</b>`;
+  kv += `<br><span class="note">decision_id ${v.decision_id}</span>`;
+  document.getElementById("verdictKv").innerHTML = kv;
+  document.getElementById("verdict").classList.add("show");
+}
+
+async function refreshAudit() {
+  const r = await fetch("/v1/audit?limit=50");
+  const j = await r.json();
+  const rows = j.entries.slice().reverse().map(e => `
+    <tr>
+      <td class="dec ${e.decision}">${e.decision.toUpperCase()}</td>
+      <td><code>${e.tool}</code> → ${e.resource}</td>
+      <td>${e.reason}</td>
+      <td>${e.effective_mode}</td>
+      <td>${e.would_have_decided ?? "—"}</td>
+      <td class="threats">${(e.owasp_threats||[]).join("<br>") || "—"}</td>
+    </tr>`).join("");
+  document.getElementById("audit").innerHTML = rows ||
+    `<tr><td colspan="6" class="note">No decisions yet.</td></tr>`;
+}
+
+document.getElementById("provision").onclick = provision;
+document.getElementById("send").onclick = () => decide(toolEl.value, document.getElementById("argValue").value);
+document.getElementById("inject").onclick = () => decide("email.send", "attacker@evil.com");
+refreshAudit();
+</script>
+</body>
+</html>
