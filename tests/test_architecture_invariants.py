@@ -73,10 +73,15 @@ def test_engine_does_not_import_adapters_or_mcp():
             root = mod.split(".")[0]
             if root not in FORBIDDEN_ROOTS:
                 continue
-            # openfga_sdk is permitted ONLY as a lazy, in-function import in the
-            # dedicated openfga backend module (optional dependency).
+            # Heavy optional dependencies (the policy store and the LLM) are
+            # permitted ONLY as lazy, in-function imports in their dedicated
+            # modules. The decision path's inability to reach the parser/LLM is
+            # enforced separately by test_decide_path_cannot_reach_writer_or_llm.
             if root == "openfga_sdk" and path.name in {"openfga.py", "bootstrap.py"}:
                 if _lazy_imported_in_function(path, "openfga_sdk"):
+                    continue
+            if root == "anthropic" and path.name == "anthropic.py":
+                if _lazy_imported_in_function(path, "anthropic"):
                     continue
             violations.append(f"{_module_name(path)} imports forbidden '{mod}'")
     assert not violations, "Engine must not import adapters/MCP libs:\n" + "\n".join(violations)
