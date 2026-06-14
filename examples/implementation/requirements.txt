@@ -1,0 +1,7 @@
+# The client (intentguard_client.py) needs only httpx.
+httpx>=0.27
+
+# To run the examples in-process (no separate server), the IntentGuard engine
+# must be importable. From the repo root:  pip install -e ".[dev]"
+# In your own project you would instead run the engine as a service and set
+# INTENTGUARD_ENGINE_URL / pass engine_url= to connect(), and drop this line.
