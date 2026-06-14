@@ -1,0 +1,9 @@
+{
+  "session_id": "demo-session-001",
+  "subject": "user:alice",
+  "request_text": "Email the meeting notes to bob@example.com and check my calendar.",
+  "allowed_actions": [
+    { "tool": "email.send", "resource": "bob@example.com" },
+    { "tool": "calendar.read", "resource": null }
+  ]
+}

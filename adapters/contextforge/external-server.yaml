@@ -1,0 +1,23 @@
+# External-plugin-server config (consumed by the cpex MCP runtime that HOSTS
+# IntentGuardPlugin). Point the runtime at this file:
+#
+#   PLUGINS_TRANSPORT=http \
+#   PLUGINS_CONFIG_PATH=adapters/contextforge/external-server.yaml \
+#   python -m cpex.framework.external.mcp.server.runtime
+#
+# The runtime exposes get_plugin_configs / get_plugin_config / invoke_hook as
+# MCP tools, which the gateway (gateway-plugins.yaml) calls over HTTP.
+plugins:
+  - name: "IntentGuard"
+    kind: "adapters.contextforge.plugin.IntentGuardPlugin"
+    description: "Authorize each tool call against the user's parsed intent."
+    hooks:
+      - "tool_pre_invoke"
+    mode: "sequential"
+    config:
+      engine_url: "http://localhost:8000"
+      timeout_seconds: 5
+      # Where to find the parsed-intent session id in the plugin context state.
+      session_state_key: "intentguard_session_id"
+      subject_prefix: "user"
+      fail_open: false   # secure default: block if the engine is unreachable

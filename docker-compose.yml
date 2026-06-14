@@ -1,0 +1,22 @@
+# Local OpenFGA policy store for IntentGuard.
+#
+# In-memory datastore: zero setup, data is lost on restart (fine for local dev
+# and the demo; use postgres/mysql for persistence). Bootstrap a store + model
+# with:  python -m engine.pdp.bootstrap
+services:
+  openfga:
+    image: openfga/openfga:latest
+    container_name: intentguard-openfga
+    command: run
+    environment:
+      - OPENFGA_DATASTORE_ENGINE=memory
+      - OPENFGA_LOG_LEVEL=warn
+    ports:
+      - "8080:8080"   # HTTP API
+      - "8081:8081"   # gRPC API
+      - "3000:3000"   # Playground
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/grpc_health_probe", "-addr=localhost:8081"]
+      interval: 5s
+      timeout: 3s
+      retries: 10

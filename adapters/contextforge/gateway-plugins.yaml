@@ -1,0 +1,27 @@
+# Gateway-side registration (goes in the ContextForge gateway's plugins config).
+#
+# Registers IntentGuard as an EXTERNAL plugin reached over MCP/HTTP. The gateway
+# calls the cpex external-plugin runtime (which hosts IntentGuardPlugin); that
+# plugin in turn calls the IntentGuard engine over HTTP.
+#
+# mode: legacy "enforce"/"permissive" names are auto-migrated by cpex; the live
+# enum values are sequential (block+modify) / audit (observe only) / transform.
+plugins:
+  - name: "IntentGuard"
+    kind: "external"
+    description: "Authorize each tool call against the user's parsed intent."
+    priority: 10          # lower = higher priority; run authz early
+    mode: "sequential"    # must be able to block (continue_processing=False)
+    hooks:
+      - "tool_pre_invoke"
+    mcp:
+      proto: STREAMABLEHTTP
+      url: http://127.0.0.1:8000/mcp   # the cpex external-plugin runtime
+      # tls:
+      #   verify: true
+
+plugin_settings:
+  plugin_timeout: 5
+  # Block the tool call if the plugin itself errors. Combined with the plugin's
+  # own fail-closed behaviour, an unreachable engine results in a blocked call.
+  fail_on_plugin_error: true

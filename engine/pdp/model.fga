@@ -1,0 +1,32 @@
+model
+  schema 1.1
+
+# IntentGuard authorization model.
+#
+# A permission is keyed on the combination of (session, tool, resource): the
+# engine computes a deterministic `grant` object id from those three values
+# (see engine/pdp/model.py::grant_object). So "email.send to bob" and
+# "email.send to anyone" are different grant objects.
+#
+# The JSON form consumed by the OpenFGA SDK lives in engine/pdp/openfga.py
+# (AUTHORIZATION_MODEL) and must stay in sync with this DSL. Transform with:
+#   fga model transform --file engine/pdp/model.fga
+
+type user
+
+type agent
+
+type session
+  relations
+    # Who the session belongs to. Used to answer "does this session exist for
+    # this subject?" and so distinguish no_session from not_in_intent.
+    define principal: [user, agent]
+
+type grant
+  relations
+    # The session this grant was issued under.
+    define session: [session]
+    # The subject(s) authorized to invoke this (tool, resource) within the session.
+    define grantee: [user, agent]
+    # The relation the decision path checks.
+    define can_invoke: grantee
