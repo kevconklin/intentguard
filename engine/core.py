@@ -33,6 +33,11 @@ async def _evaluate_enforce(
     grant_object_id: str,
 ) -> tuple[Decision, Reason, str | None]:
     """Compute the decision enforce mode would make. Fails closed on error."""
+    # Allowlist gate: a tool not in the registry is unknown and denied before any
+    # store lookup. This is deterministic and needs no session.
+    if config.enforce_tool_allowlist and not config.tool_registry.is_known(request.tool):
+        return Decision.deny, Reason.unknown_tool, None
+
     try:
         exists = await asyncio.wait_for(
             store.session_exists(request.session_id, request.subject),
@@ -69,7 +74,9 @@ async def decide(
     """Authorize a single tool call against stored intent. Pure decision path."""
     effective_mode = request.mode_override or config.mode
 
-    resource = extract_resource(request.tool, request.arguments, request.resource)
+    resource = extract_resource(
+        request.tool, request.arguments, request.resource, config.tool_registry
+    )
     grant_object_id = grant_object(request.session_id, request.tool, resource)
 
     enforce_decision, reason, error = await _evaluate_enforce(

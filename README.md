@@ -111,6 +111,8 @@ uvicorn engine.api.server:app
 | `INTENTGUARD_OPENFGA_STORE_ID` / `_MODEL_ID` | — | from `bootstrap` |
 | `INTENTGUARD_ESCALATABLE_TOOLS` | — | comma-separated tools that escalate instead of deny |
 | `INTENTGUARD_AUDIT_PATH` | — | JSONL audit log path (in-memory if unset) |
+| `INTENTGUARD_TOOL_REGISTRY_PATH` | bundled `tools.json` | known-tools allowlist + per-tool resource binding |
+| `INTENTGUARD_ENFORCE_TOOL_ALLOWLIST` | `true` | deny tools not in the registry (`unknown_tool`) |
 
 ## The decision contract (v1)
 
@@ -124,7 +126,7 @@ uvicorn engine.api.server:app
 
 // response
 { "schema_version":"1", "decision":"allow|deny|escalate",
-  "reason":"in_intent|not_in_intent|no_session|pdp_error_failclosed|escalated_for_review",
+  "reason":"in_intent|not_in_intent|no_session|unknown_tool|pdp_error_failclosed|escalated_for_review",
   "effective_mode":"observe|enforce",
   "would_have_decided":"...",      // present in observe mode
   "escalation_prompt":"...",       // present only when decision is escalate

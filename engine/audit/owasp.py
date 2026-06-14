@@ -32,6 +32,7 @@ _REASON_THREATS: dict[Reason, tuple[AgenticThreat, ...]] = {
         AgenticThreat.TOOL_MISUSE,
     ),
     Reason.no_session: (AgenticThreat.PRIVILEGE_COMPROMISE,),
+    Reason.unknown_tool: (AgenticThreat.TOOL_MISUSE,),
     Reason.escalated_for_review: (AgenticThreat.INTENT_BREAKING,),
     Reason.pdp_error_failclosed: (
         AgenticThreat.PRIVILEGE_COMPROMISE,

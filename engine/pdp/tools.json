@@ -1,0 +1,10 @@
+{
+  "tools": [
+    { "name": "email.send",     "description": "Send an email",            "resource_arg": "to" },
+    { "name": "calendar.read",  "description": "Read calendar events",     "resource_arg": null },
+    { "name": "calendar.create","description": "Create a calendar event",  "resource_arg": "calendar" },
+    { "name": "http.get",       "description": "Perform an HTTP GET",       "resource_arg": "url" },
+    { "name": "file.read",      "description": "Read a file",              "resource_arg": "path" },
+    { "name": "file.write",     "description": "Write a file",             "resource_arg": "path" }
+  ]
+}
