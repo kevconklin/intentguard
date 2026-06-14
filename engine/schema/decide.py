@@ -41,6 +41,7 @@ class Reason(str, Enum):
     in_intent = "in_intent"
     not_in_intent = "not_in_intent"
     no_session = "no_session"
+    unknown_tool = "unknown_tool"
     pdp_error_failclosed = "pdp_error_failclosed"
     escalated_for_review = "escalated_for_review"
 

@@ -15,21 +15,11 @@ from __future__ import annotations
 import hashlib
 from typing import Any, Optional
 
+from engine.pdp.registry import ToolRegistry, default_registry
+
 # Sentinel resource for tools that carry no security-relevant resource (or when
 # a grant is intentionally scoped to "any resource").
 ANY_RESOURCE = "*"
-
-# Maps a tool to the argument key holding its security-relevant resource.
-# Milestone 1 ships a small static registry; Milestone 2 should derive this
-# from tool schemas / the intent parser. A tool absent here binds to ANY_RESOURCE.
-TOOL_RESOURCE_ARG: dict[str, Optional[str]] = {
-    "email.send": "to",
-    "calendar.read": None,
-    "calendar.create": "calendar",
-    "http.get": "url",
-    "file.read": "path",
-    "file.write": "path",
-}
 
 
 def normalize_resource(value: Any) -> str:
@@ -46,16 +36,19 @@ def extract_resource(
     tool: str,
     arguments: dict[str, Any],
     explicit_resource: Optional[str] = None,
+    registry: Optional[ToolRegistry] = None,
 ) -> str:
     """Determine the resource a tool call targets.
 
-    An explicit resource on the request wins. Otherwise the registry decides
+    An explicit resource on the request wins. Otherwise the tool registry decides
     which argument is security-relevant. Unknown tools / missing arguments bind
-    to ANY_RESOURCE.
+    to ANY_RESOURCE (allowlist enforcement of unknown tools is a separate concern
+    handled on the decision path).
     """
     if explicit_resource is not None and explicit_resource != "":
         return normalize_resource(explicit_resource)
-    arg_key = TOOL_RESOURCE_ARG.get(tool, None)
+    reg = registry or default_registry()
+    arg_key = reg.resource_arg(tool)
     if arg_key is None:
         return ANY_RESOURCE
     return normalize_resource(arguments.get(arg_key))
