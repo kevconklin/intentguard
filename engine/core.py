@@ -21,7 +21,7 @@ import uuid
 
 from engine.audit import AuditLogger, threats_for_reason
 from engine.config import EngineConfig
-from engine.pdp.model import extract_resource, grant_key, grant_object
+from engine.pdp.model import bind_resource, grant_key, grant_object
 from engine.pdp.store import PolicyStore
 from engine.schema import Decision, DecideRequest, DecideResponse, Mode, Reason
 
@@ -31,12 +31,18 @@ async def _evaluate_enforce(
     store: PolicyStore,
     config: EngineConfig,
     grant_object_id: str,
+    resource_complete: bool,
 ) -> tuple[Decision, Reason, str | None]:
     """Compute the decision enforce mode would make. Fails closed on error."""
     # Allowlist gate: a tool not in the registry is unknown and denied before any
     # store lookup. This is deterministic and needs no session.
     if config.enforce_tool_allowlist and not config.tool_registry.is_known(request.tool):
         return Decision.deny, Reason.unknown_tool, None
+
+    # Fail closed when a required resource argument is missing: we cannot bind the
+    # call to a specific grant, so we do not let it match an "any" grant.
+    if not resource_complete:
+        return Decision.deny, Reason.missing_resource, None
 
     try:
         exists = await asyncio.wait_for(
@@ -74,13 +80,14 @@ async def decide(
     """Authorize a single tool call against stored intent. Pure decision path."""
     effective_mode = request.mode_override or config.mode
 
-    resource = extract_resource(
+    binding = bind_resource(
         request.tool, request.arguments, request.resource, config.tool_registry
     )
+    resource = binding.resource
     grant_object_id = grant_object(request.session_id, request.tool, resource)
 
     enforce_decision, reason, error = await _evaluate_enforce(
-        request, store, config, grant_object_id
+        request, store, config, grant_object_id, binding.complete
     )
 
     # observe mode always returns allow, but records what it would have done.

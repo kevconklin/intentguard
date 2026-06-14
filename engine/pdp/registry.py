@@ -21,24 +21,38 @@ import json
 from pathlib import Path
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # Bundled default registry, shipped with the package.
 DEFAULT_REGISTRY_PATH = Path(__file__).with_name("tools.json")
 
 
 class ToolSpec(BaseModel):
-    """Definition of a single known tool."""
+    """Definition of a single known tool.
+
+    ``resource_args`` lists the argument key(s) whose values, combined in order,
+    form the security-relevant resource. Empty means the tool binds to any
+    resource (e.g. ``calendar.read``). When non-empty, all listed arguments are
+    required: a call missing one is denied (fail closed).
+
+    For ergonomics and backward compatibility, a singular ``resource_arg``
+    (string or null) is accepted in configs and coerced into ``resource_args``.
+    """
 
     name: str = Field(..., min_length=1)
     description: str = ""
-    resource_arg: Optional[str] = Field(
-        default=None,
-        description="The argument key holding the security-relevant resource "
-        "(e.g. 'to' for email.send). None = the tool binds to any resource.",
-    )
+    resource_args: list[str] = Field(default_factory=list)
 
     model_config = {"frozen": True, "extra": "forbid"}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_singular_resource_arg(cls, data: object) -> object:
+        if isinstance(data, dict) and "resource_arg" in data:
+            data = dict(data)
+            val = data.pop("resource_arg")
+            data.setdefault("resource_args", [val] if val else [])
+        return data
 
 
 class _RegistryFile(BaseModel):
@@ -66,10 +80,15 @@ class ToolRegistry:
     def spec(self, tool: str) -> Optional[ToolSpec]:
         return self._by_name.get(tool)
 
-    def resource_arg(self, tool: str) -> Optional[str]:
-        """The argument key to bind for ``tool``, or None (unknown or no resource)."""
+    def resource_args(self, tool: str) -> list[str]:
+        """The argument key(s) forming ``tool``'s resource (empty = any/unknown)."""
         spec = self._by_name.get(tool)
-        return spec.resource_arg if spec else None
+        return list(spec.resource_args) if spec else []
+
+    def resource_arg(self, tool: str) -> Optional[str]:
+        """The first resource argument for ``tool``, or None (no resource/unknown)."""
+        args = self.resource_args(tool)
+        return args[0] if args else None
 
     def tool_names(self) -> list[str]:
         return list(self._by_name)
