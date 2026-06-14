@@ -29,11 +29,11 @@ expand what it is *allowed* to do.
    TRUSTED PATH (once per request, before tools run)
    ─────────────────────────────────────────────────────────────
    user request ─▶ intent parser (LLM) ─▶ ParsedIntent (inert data)
-                                               │
-                                               ▼  provision_session()  ◀── ONLY writer
-                                         ┌─────────────┐
-                                         │ policy store │  (OpenFGA)
-                                         └─────────────┘
+                     │ allowlist-validate        │
+                     ▼ (drop unknown tools)       ▼  provision_session()  ◀── ONLY writer
+                  tool registry            ┌─────────────┐   (auth: Bearer token)
+                                           │ policy store │  (OpenFGA)
+                                           └─────────────┘
    ═══════════════════════ time barrier ═══════════════════════════
    UNTRUSTED PATH (per tool call, after untrusted content is in play)
    ─────────────────────────────────────────────────────────────
@@ -52,14 +52,14 @@ read-only.
                          ┌──────────────────────────────────────────┐
    MCP Gateway           │                ENGINE (gateway-agnostic)  │
   (ContextForge)         │                                           │
-  ┌───────────┐  HTTP    │  engine/api      FastAPI  /v1/decide      │
-  │  tool_pre │ ───────▶ │                            /v1/sessions   │
+  ┌───────────┐  HTTP    │  engine/api      decide / sessions(:parse)│
+  │  tool_pre │ ───────▶ │                  + provisioning auth      │
   │  _invoke  │          │  engine/core     pure decide() function   │
   └───────────┘          │  engine/pdp      PolicyStore (read-only)  │
         ▲                │                  PolicyWriter (write-only)│
-        │ adapter        │                  OpenFGA model + client   │
-  ┌───────────┐          │  engine/intent   parser iface + mock/real │
-  │ adapters/ │          │                  provision (trusted write)│
+        │ adapter        │                  tool registry + OpenFGA  │
+  ┌───────────┐          │  engine/intent   parser iface + mock +    │
+  │ adapters/ │          │                  Anthropic + provision    │
   │contextforge          │  engine/audit    append-only + OWASP tags │
   └───────────┘          │  engine/schema   versioned decide contract│
                          └──────────────────────────────────────────┘
@@ -99,6 +99,44 @@ type grant
 - `session_exists` → check `principal` on `session:<id>` (distinguishes
   *no session* from *not in intent*).
 - `check_grant` → check `can_invoke` on `grant:<hash(session,tool,resource)>`.
+
+## Tool registry & argument binding
+
+A tool must be in the **registry** (`engine/pdp/tools.json`, or a custom file via
+`INTENTGUARD_TOOL_REGISTRY_PATH`) to be authorizable. Each `ToolSpec` declares the
+argument key(s) that carry the security-relevant **resource**:
+
+- one key → single-arg binding (e.g. `email.send` → `to`);
+- several keys → a **compound** resource bound from all of them, in order
+  (e.g. `host` + `path`); a call missing any one is denied `missing_resource`;
+- none → the tool binds to "any resource" (e.g. `calendar.read`).
+
+The registry is also an **allowlist**: a tool not in it is denied `unknown_tool`
+before any store lookup (deterministic, no session needed). Both gates run on the
+decision path and honor observe mode.
+
+## Intent parsing (the trusted, once-per-request LLM step)
+
+`engine/intent` defines a provider-agnostic `IntentParser`. Two implementations:
+
+- `MockIntentParser` — deterministic, drives the demo and the network-free tests.
+- `AnthropicIntentParser` — calls the Messages API (forced tool use) to extract
+  `(tool, resource)` pairs, then **validates each against the registry allowlist**
+  and drops anything unknown (a hallucination or an injected instruction that
+  reached the request can never become a grant).
+
+The parser returns inert `ParsedIntent` data and has no writer access. The
+`POST /v1/sessions:parse` endpoint runs it on the trusted path and provisions the
+validated result; a parser failure provisions nothing.
+
+## Authenticating the write path
+
+The provisioning endpoints (`/v1/sessions`, `/v1/sessions:parse`) are the only
+paths that grant permissions, so they are guarded by a shared-secret Bearer token
+(constant-time compared). The read path is never gated by it. With a token set,
+unauthenticated writes get `401`; in strict mode a missing token fails closed
+(`503`); the default dev posture is open with a startup warning. This is the
+network-boundary complement to the structural read/write separation below.
 
 ## Read/write separation (defense in depth)
 

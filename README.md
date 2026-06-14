@@ -137,6 +137,29 @@ uvicorn engine.api.server:app
   "decision_id":"..." }            // correlates to the audit log entry
 ```
 
+### Provisioning (the trusted write path)
+
+Two ways to seed a session's permissions, **before** any tool runs. Both require
+`Authorization: Bearer $INTENTGUARD_PROVISIONING_TOKEN` when a token is configured.
+
+```bash
+# Explicit allow-list (config / your own logic):
+curl -s localhost:8000/v1/sessions -H 'content-type: application/json' \
+  -H "authorization: Bearer $TOKEN" -d '{
+  "session_id":"s1","subject":"user:alice",
+  "allowed_actions":[{"tool":"email.send","resource":"bob@example.com"}]}'
+
+# Parse a natural-language request with the LLM, then provision (parser=anthropic):
+curl -s localhost:8000/v1/sessions:parse -H 'content-type: application/json' \
+  -H "authorization: Bearer $TOKEN" -d '{
+  "session_id":"s1","subject":"user:alice",
+  "request_text":"Email the notes to bob@example.com and check my calendar."}'
+```
+
+`/v1/sessions:parse` runs the configured intent parser, validates every extracted
+`(tool, resource)` against the tool-registry allowlist (dropping anything not
+known), and provisions the result. A parser failure provisions nothing (502).
+
 ## ContextForge integration
 
 `adapters/contextforge/` is a native plugin for the IBM ContextForge MCP Gateway
@@ -149,27 +172,44 @@ with [`external-server.yaml`](adapters/contextforge/external-server.yaml).
 
 ```
 engine/
-  api/      FastAPI app: /v1/decide, /v1/sessions, /v1/audit
+  api/      FastAPI app: /v1/decide, /v1/sessions(:parse), /v1/audit + auth
   core.py   the pure, deterministic decide() function
-  pdp/      PolicyStore (read) + PolicyWriter (write) + OpenFGA model/client
-  intent/   parser interface + deterministic mock + Anthropic stub + provisioning
+  pdp/      PolicyStore (read) + PolicyWriter (write) + registry + OpenFGA model
+  intent/   parser interface + deterministic mock + Anthropic parser + provisioning
   audit/    append-only logger + OWASP Agentic Top 10 tagging
   schema/   the versioned decide request/response models
 adapters/contextforge/   the tool_pre_invoke plugin/adapter
-examples/demo-injection/ a runnable end-to-end demonstration
-tests/                   contract, injection, and architecture-invariant tests
+examples/                demo-injection, implementation guide, browser demo-ui
+tests/                   contract, injection, registry, binding, parser, auth tests
 ```
+
+## Adding a new tool
+
+A tool the agent can call must be in the registry to be authorizable. Add an
+entry to `engine/pdp/tools.json` (or your own file via `INTENTGUARD_TOOL_REGISTRY_PATH`):
+
+```jsonc
+{ "name": "slack.post", "description": "Post to a Slack channel",
+  "resource_args": ["channel"] }   // the security-relevant argument(s)
+```
+
+- `resource_args: []` (or omit) → the whole tool is bound to "any resource".
+- One key → that argument is the resource (e.g. `["to"]` for `email.send`).
+- Several keys → a **compound** resource bound from all of them, in order; a call
+  missing any one is denied (`missing_resource`, fail closed).
+- A tool **not** in the registry is denied (`unknown_tool`) — the allowlist is the
+  outer gate. Disable with `INTENTGUARD_ENFORCE_TOOL_ALLOWLIST=false`.
 
 ## Status
 
-Milestone 1 (this release): working end-to-end spine. The real LLM intent parser
-is stubbed behind a provider-agnostic interface (`engine/intent/anthropic.py`);
-the mock parser drives the demo and tests.
+**Milestone 2 (current):** real Anthropic intent parser behind a provider-agnostic
+interface with allowlist validation; a known-tools registry; schema-driven and
+compound argument binding; a parse-and-provision endpoint; an authenticated
+provisioning write path; and OpenFGA integration tests in CI. The deterministic
+mock parser still drives the demo and the network-free test suite.
 
-**Next (Milestone 2):** implement the real Anthropic intent parser with
-structured (tool, resource) extraction validated against a known-tools
-allowlist; broaden argument binding beyond the Milestone-1 tool registry; and
-add OpenFGA integration tests behind a docker-compose service in CI.
+**Next:** richer tool schemas (argument-level validation), session lifecycle
+(TTL / revocation), and a live end-to-end run against a real ContextForge gateway.
 
 ## License
 
