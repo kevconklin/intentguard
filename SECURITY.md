@@ -79,4 +79,4 @@ These are treated as the spec and verified in `tests/`:
 
 ## Supported versions
 
-This is pre-1.0 software (Milestone 1). Security fixes are applied to `main`.
+This is pre-1.0 software. Security fixes are applied to `main`.
