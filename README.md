@@ -126,7 +126,7 @@ uvicorn engine.api.server:app
 
 // response
 { "schema_version":"1", "decision":"allow|deny|escalate",
-  "reason":"in_intent|not_in_intent|no_session|unknown_tool|pdp_error_failclosed|escalated_for_review",
+  "reason":"in_intent|not_in_intent|no_session|unknown_tool|missing_resource|pdp_error_failclosed|escalated_for_review",
   "effective_mode":"observe|enforce",
   "would_have_decided":"...",      // present in observe mode
   "escalation_prompt":"...",       // present only when decision is escalate
