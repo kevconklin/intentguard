@@ -16,13 +16,13 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from engine.audit import AuditLogger
 from engine.config import EngineConfig
 from engine.core import decide
-from engine.intent.base import AllowedAction, ParsedIntent
+from engine.intent.base import AllowedAction, IntentParser, ParsedIntent
 from engine.intent.provision import provision_session
 from engine.schema import DecideRequest, DecideResponse
 
@@ -38,6 +38,20 @@ class ProvisionRequest(BaseModel):
 class ProvisionResponse(BaseModel):
     session_id: str
     grants_written: int
+
+
+class ParseProvisionRequest(BaseModel):
+    """Trusted parse-and-provision request: the user's natural-language request."""
+
+    session_id: str
+    subject: str
+    request_text: str
+
+
+class ParseProvisionResponse(BaseModel):
+    session_id: str
+    grants_written: int
+    allowed_actions: list[AllowedAction]
 
 
 def _build_default_backend(config: EngineConfig):
@@ -66,11 +80,24 @@ def _build_default_backend(config: EngineConfig):
     return make_memory_backend()
 
 
+def _build_default_parser(config: EngineConfig) -> IntentParser:
+    """Construct the configured intent parser. Anthropic is imported lazily."""
+    if config.intent_parser == "anthropic":
+        from engine.intent.anthropic import AnthropicIntentParser
+
+        return AnthropicIntentParser(registry=config.tool_registry)
+
+    from engine.intent.mock import MockIntentParser
+
+    return MockIntentParser()
+
+
 def create_app(
     config: Optional[EngineConfig] = None,
     store=None,
     writer=None,
     audit: Optional[AuditLogger] = None,
+    parser: Optional[IntentParser] = None,
 ) -> FastAPI:
     """Create the engine app. Components are injectable for tests."""
     config = config or EngineConfig.from_env()
@@ -79,6 +106,7 @@ def create_app(
         default_store, default_writer = _build_default_backend(config)
         store = store or default_store
         writer = writer or default_writer
+    parser = parser or _build_default_parser(config)
 
     app = FastAPI(title="IntentGuard", version="0.1.0")
     app.state.config = config
@@ -104,6 +132,29 @@ def create_app(
         )
         count = await provision_session(intent, writer)
         return ProvisionResponse(session_id=request.session_id, grants_written=count)
+
+    @app.post("/v1/sessions:parse", response_model=ParseProvisionResponse)
+    async def parse_and_provision_endpoint(
+        request: ParseProvisionRequest,
+    ) -> ParseProvisionResponse:
+        # Trusted path: parse the user's request into allowlist-validated actions,
+        # then provision. Parsing happens fully before any write, so a parser
+        # failure provisions nothing (no partial, unvalidated writes).
+        try:
+            intent = await parser.parse(
+                request.request_text, request.subject, request.session_id
+            )
+        except Exception as exc:  # noqa: BLE001 - surface parser failure, write nothing
+            raise HTTPException(
+                status_code=502, detail=f"intent parsing failed: {exc}"
+            ) from exc
+
+        count = await provision_session(intent, writer)
+        return ParseProvisionResponse(
+            session_id=request.session_id,
+            grants_written=count,
+            allowed_actions=intent.allowed_actions,
+        )
 
     @app.get("/v1/audit")
     async def audit_endpoint(limit: int = 100) -> dict:

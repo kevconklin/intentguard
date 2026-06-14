@@ -44,6 +44,7 @@ class EngineConfig:
     audit_path: str | None = None
     tool_registry: ToolRegistry = field(default_factory=default_registry)
     enforce_tool_allowlist: bool = True
+    intent_parser: str = "mock"
 
     @staticmethod
     def from_env() -> "EngineConfig":
@@ -78,4 +79,5 @@ class EngineConfig:
                 "INTENTGUARD_ENFORCE_TOOL_ALLOWLIST", "true"
             ).lower()
             not in {"0", "false", "no"},
+            intent_parser=os.environ.get("INTENTGUARD_INTENT_PARSER", "mock"),
         )

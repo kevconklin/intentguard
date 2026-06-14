@@ -113,6 +113,8 @@ uvicorn engine.api.server:app
 | `INTENTGUARD_AUDIT_PATH` | — | JSONL audit log path (in-memory if unset) |
 | `INTENTGUARD_TOOL_REGISTRY_PATH` | bundled `tools.json` | known-tools allowlist + per-tool resource binding |
 | `INTENTGUARD_ENFORCE_TOOL_ALLOWLIST` | `true` | deny tools not in the registry (`unknown_tool`) |
+| `INTENTGUARD_INTENT_PARSER` | `mock` | parser for `/v1/sessions:parse` — `mock` or `anthropic` |
+| `INTENTGUARD_ANTHROPIC_MODEL` | `claude-sonnet-4-6` | model for the Anthropic intent parser |
 
 ## The decision contract (v1)
 
