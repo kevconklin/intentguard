@@ -16,9 +16,10 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from engine.api.auth import make_provisioning_guard, warn_if_unauthenticated
 from engine.audit import AuditLogger
 from engine.config import EngineConfig
 from engine.core import decide
@@ -107,6 +108,8 @@ def create_app(
         store = store or default_store
         writer = writer or default_writer
     parser = parser or _build_default_parser(config)
+    warn_if_unauthenticated(config)
+    require_provisioning = Depends(make_provisioning_guard(config))
 
     app = FastAPI(title="IntentGuard", version="0.1.0")
     app.state.config = config
@@ -120,7 +123,11 @@ def create_app(
     async def decide_endpoint(request: DecideRequest) -> DecideResponse:
         return await decide(request, store, config, audit)
 
-    @app.post("/v1/sessions", response_model=ProvisionResponse)
+    @app.post(
+        "/v1/sessions",
+        response_model=ProvisionResponse,
+        dependencies=[require_provisioning],
+    )
     async def provision_endpoint(request: ProvisionRequest) -> ProvisionResponse:
         # Trusted path: seed the session's permissions. In Milestone 1 these
         # come from config / the mock parser. The LLM/untrusted content never
@@ -133,7 +140,11 @@ def create_app(
         count = await provision_session(intent, writer)
         return ProvisionResponse(session_id=request.session_id, grants_written=count)
 
-    @app.post("/v1/sessions:parse", response_model=ParseProvisionResponse)
+    @app.post(
+        "/v1/sessions:parse",
+        response_model=ParseProvisionResponse,
+        dependencies=[require_provisioning],
+    )
     async def parse_and_provision_endpoint(
         request: ParseProvisionRequest,
     ) -> ParseProvisionResponse:
