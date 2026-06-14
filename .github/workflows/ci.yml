@@ -7,6 +7,39 @@ on:
     branches: [main]
 
 jobs:
+  quality:
+    # Deterministic code-review gates: lint, format, types, security, deps.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,lint]"
+
+      - name: Ruff lint
+        run: ruff check engine adapters tests
+
+      - name: Ruff format check
+        run: ruff format --check engine adapters tests
+
+      - name: Mypy (engine core)
+        run: mypy
+
+      - name: Bandit (security static analysis)
+        run: bandit -q -c pyproject.toml -r engine adapters
+
+      - name: pip-audit (dependency CVEs — informational)
+        continue-on-error: true
+        run: pip-audit --progress-spinner off
+
   test:
     runs-on: ubuntu-latest
     strategy:

@@ -23,7 +23,7 @@ from engine.audit import AuditLogger, threats_for_reason
 from engine.config import EngineConfig
 from engine.pdp.model import bind_resource, grant_key, grant_object
 from engine.pdp.store import PolicyStore
-from engine.schema import Decision, DecideRequest, DecideResponse, Mode, Reason
+from engine.schema import DecideRequest, DecideResponse, Decision, Mode, Reason
 
 
 async def _evaluate_enforce(
@@ -36,7 +36,9 @@ async def _evaluate_enforce(
     """Compute the decision enforce mode would make. Fails closed on error."""
     # Allowlist gate: a tool not in the registry is unknown and denied before any
     # store lookup. This is deterministic and needs no session.
-    if config.enforce_tool_allowlist and not config.tool_registry.is_known(request.tool):
+    if config.enforce_tool_allowlist and not config.tool_registry.is_known(
+        request.tool
+    ):
         return Decision.deny, Reason.unknown_tool, None
 
     # Fail closed when a required resource argument is missing: we cannot bind the
@@ -59,7 +61,11 @@ async def _evaluate_enforce(
     except asyncio.TimeoutError:
         return Decision.deny, Reason.pdp_error_failclosed, "pdp_timeout"
     except Exception as exc:  # noqa: BLE001 - fail closed on any store error
-        return Decision.deny, Reason.pdp_error_failclosed, f"pdp_error:{type(exc).__name__}"
+        return (
+            Decision.deny,
+            Reason.pdp_error_failclosed,
+            f"pdp_error:{type(exc).__name__}",
+        )
 
     if allowed:
         return Decision.allow, Reason.in_intent, None

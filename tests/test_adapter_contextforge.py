@@ -6,8 +6,6 @@ or not cpex is installed.
 
 from __future__ import annotations
 
-import pytest
-
 from adapters.contextforge._cpex import ToolPreInvokePayload
 from adapters.contextforge.plugin import IntentGuardPlugin
 from adapters.contextforge.verdict import EngineVerdict, verdict_to_result
@@ -33,7 +31,9 @@ def test_deny_blocks_with_violation():
 
 def test_escalate_blocks_and_carries_prompt():
     result = verdict_to_result(
-        EngineVerdict("escalate", "escalated_for_review", "d3", escalation_prompt="Approve?"),
+        EngineVerdict(
+            "escalate", "escalated_for_review", "d3", escalation_prompt="Approve?"
+        ),
         _payload(),
     )
     assert result.continue_processing is False

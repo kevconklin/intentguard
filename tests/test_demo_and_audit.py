@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
-import os
 import pathlib
-
-import pytest
 
 from engine.audit import AuditLogger
 
@@ -26,9 +23,17 @@ def test_audit_log_is_append_only_on_disk(tmp_path):
     path = tmp_path / "audit.jsonl"
     log = AuditLogger(str(path))
     common = dict(
-        session_id="s", subject="user:a", tool="email.send", resource="bob@x",
-        grant_key="s|email.send|bob@x", decision="deny", reason="not_in_intent",
-        effective_mode="enforce", would_have_decided=None, owasp_threats=[], error=None,
+        session_id="s",
+        subject="user:a",
+        tool="email.send",
+        resource="bob@x",
+        grant_key="s|email.send|bob@x",
+        decision="deny",
+        reason="not_in_intent",
+        effective_mode="enforce",
+        would_have_decided=None,
+        owasp_threats=[],
+        error=None,
     )
     log.record(decision_id="1", **common)
     size_after_first = path.stat().st_size

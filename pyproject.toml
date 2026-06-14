@@ -33,6 +33,13 @@ dev = [
     "pytest-asyncio>=0.23",
     "anyio>=4.0",
 ]
+# Static analysis / quality gates (CI `quality` job).
+lint = [
+    "ruff>=0.6",
+    "mypy>=1.8",
+    "bandit>=1.7",
+    "pip-audit>=2.7",
+]
 
 [tool.setuptools.packages.find]
 include = ["engine*", "adapters*"]
@@ -41,3 +48,25 @@ include = ["engine*", "adapters*"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+# pycodestyle errors, pyflakes, import sorting.
+select = ["E", "F", "I"]
+# Line length is governed by the formatter; E501 only fires on un-wrappable
+# strings/docstrings/URLs, which is noise when a formatter is in use.
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+# Scoped to the engine core (the security-critical, fully-typed surface). The
+# adapters/ shim uses intentional conditional redefinitions for the cpex fallback.
+files = ["engine"]
+
+[tool.bandit]
+# Security static analysis over engine + adapters (not tests).
+exclude_dirs = ["tests"]

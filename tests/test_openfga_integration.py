@@ -17,7 +17,9 @@ import pytest
 
 URL = os.environ.get("INTENTGUARD_TEST_OPENFGA_URL")
 
-pytestmark = pytest.mark.skipif(not URL, reason="set INTENTGUARD_TEST_OPENFGA_URL to run")
+pytestmark = pytest.mark.skipif(
+    not URL, reason="set INTENTGUARD_TEST_OPENFGA_URL to run"
+)
 
 
 @pytest.fixture
@@ -33,8 +35,8 @@ async def backend_ids():
 
 
 async def test_real_openfga_decide_path(backend_ids):
-    from engine.pdp.openfga import OpenFgaPolicyStore, OpenFgaPolicyWriter
     from engine.pdp.model import grant_object
+    from engine.pdp.openfga import OpenFgaPolicyStore, OpenFgaPolicyWriter
 
     store_id, model_id = backend_ids
     writer = OpenFgaPolicyWriter(URL, store_id, model_id)
@@ -46,5 +48,15 @@ async def test_real_openfga_decide_path(backend_ids):
 
     assert await store.session_exists("s1", "user:alice") is True
     assert await store.session_exists("ghost", "user:alice") is False
-    assert await store.check_grant("user:alice", grant_object("s1", "email.send", "bob@example.com")) is True
-    assert await store.check_grant("user:alice", grant_object("s1", "email.send", "attacker@evil.com")) is False
+    assert (
+        await store.check_grant(
+            "user:alice", grant_object("s1", "email.send", "bob@example.com")
+        )
+        is True
+    )
+    assert (
+        await store.check_grant(
+            "user:alice", grant_object("s1", "email.send", "attacker@evil.com")
+        )
+        is False
+    )

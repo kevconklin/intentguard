@@ -1,0 +1,61 @@
+# Claude-powered automated PR review.
+#
+# Runs Anthropic's official `anthropics/claude-code-action` on every PR and posts
+# review comments. It is a no-op (and stays green) until you add the API key:
+#   Repo Settings -> Secrets and variables -> Actions -> New repository secret
+#   Name: ANTHROPIC_API_KEY   Value: <your key from console.anthropic.com>
+#
+# NOTE: verify the action inputs against the current README at
+# https://github.com/anthropics/claude-code-action — the input surface (v1)
+# was confirmed in June 2026 but may evolve. `--model` uses a current model id.
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  claude-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Check for API key
+        id: key
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::ANTHROPIC_API_KEY not set — skipping Claude review."
+          fi
+
+      - name: Checkout
+        if: steps.key.outputs.present == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Claude review
+        if: steps.key.outputs.present == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review the changed code in this pull request. IntentGuard is a
+            security tool, so weight these heavily:
+            - Correctness and logic bugs in the diff.
+            - Security: trust boundaries, authorization, prompt-injection
+              resistance, secrets, input validation, fail-closed behavior.
+            - Project invariants — flag any violation:
+              * the `engine/` core must stay gateway-agnostic (no adapters/MCP imports);
+              * the per-call decide() path must be deterministic, consult no LLM,
+                and have no write capability;
+              * provisioning is the only write path to the policy store.
+            - Test coverage for new behavior.
+            Post concise inline comments for concrete issues. Keep style nits to a
+            minimum; prefer high-signal findings.
+          claude_args: --model claude-sonnet-4-6

@@ -12,10 +12,7 @@ These encode the non-negotiable security invariants as executable checks:
 from __future__ import annotations
 
 import ast
-import os
 import pathlib
-
-import pytest
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 ENGINE_DIR = REPO_ROOT / "engine"
@@ -84,10 +81,13 @@ def test_engine_does_not_import_adapters_or_mcp():
                 if _lazy_imported_in_function(path, "anthropic"):
                     continue
             violations.append(f"{_module_name(path)} imports forbidden '{mod}'")
-    assert not violations, "Engine must not import adapters/MCP libs:\n" + "\n".join(violations)
+    assert not violations, "Engine must not import adapters/MCP libs:\n" + "\n".join(
+        violations
+    )
 
 
 # --- Static import graph over the engine package ---------------------------
+
 
 def _engine_import_graph() -> dict[str, set[str]]:
     graph: dict[str, set[str]] = {}
@@ -121,7 +121,9 @@ def test_decide_path_cannot_reach_writer_or_llm():
 
     # No intent parser (LLM) module is reachable from the decision path.
     intent_modules = {m for m in reachable if m.startswith("engine.intent")}
-    assert not intent_modules, f"decide() path must not reach the parser: {intent_modules}"
+    assert not intent_modules, (
+        f"decide() path must not reach the parser: {intent_modules}"
+    )
 
 
 def test_only_provisioning_imports_the_writer():
@@ -130,7 +132,9 @@ def test_only_provisioning_imports_the_writer():
     for path in sorted(intent_dir.rglob("*.py")):
         imports_writer = any("engine.pdp.writer" in m for m in _imports(path))
         if path.name == "provision.py":
-            assert imports_writer, "provision.py is the trusted write path; it should import the writer"
+            assert imports_writer, (
+                "provision.py is the trusted write path; it should import the writer"
+            )
         else:
             assert not imports_writer, f"{path.name} must not import the policy writer"
 
@@ -143,7 +147,9 @@ def test_read_only_store_has_no_write_methods():
     write_like = {"write", "write_grants", "create", "update", "delete", "set"}
     for cls in (InMemoryPolicyStore, PolicyStore):
         names = {n for n in dir(cls) if not n.startswith("_")}
-        assert not (names & write_like), f"{cls.__name__} exposes write methods: {names & write_like}"
+        assert not (names & write_like), (
+            f"{cls.__name__} exposes write methods: {names & write_like}"
+        )
 
 
 def test_parser_output_is_inert_data():
@@ -151,12 +157,14 @@ def test_parser_output_is_inert_data():
     from engine.intent.base import AllowedAction, ParsedIntent
 
     intent = ParsedIntent(
-        session_id="s", subject="user:a",
+        session_id="s",
+        subject="user:a",
         allowed_actions=[AllowedAction(tool="email.send", resource="bob@example.com")],
     )
     public_callables = {
-        n for n in dir(intent)
-        if not n.startswith("_") and callable(getattr(intent, n))
+        n for n in dir(intent) if not n.startswith("_") and callable(getattr(intent, n))
     }
     # Only pydantic's serialization/validation helpers; nothing store-related.
-    assert not any("write" in n or "provision" in n or "grant" in n for n in public_callables)
+    assert not any(
+        "write" in n or "provision" in n or "grant" in n for n in public_callables
+    )

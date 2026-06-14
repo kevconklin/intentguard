@@ -36,7 +36,10 @@ def verdict_to_result(
     * escalate -> continue_processing=False + violation carrying the human
                   escalation prompt (the gateway/UI prompts the user)
     """
-    meta = {"intentguard_decision_id": verdict.decision_id, "intentguard_reason": verdict.reason}
+    meta = {
+        "intentguard_decision_id": verdict.decision_id,
+        "intentguard_reason": verdict.reason,
+    }
 
     if verdict.decision == "allow":
         return ToolPreInvokeResult(continue_processing=True, metadata=meta)

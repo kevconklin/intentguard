@@ -50,7 +50,9 @@ def _resolve_session_and_subject(
     gctx = getattr(context, "global_context", None)
     session_id = state.get(session_state_key) or getattr(gctx, "request_id", "unknown")
 
-    user = getattr(context, "user_email", None) or getattr(gctx, "user", None) or "unknown"
+    user = (
+        getattr(context, "user_email", None) or getattr(gctx, "user", None) or "unknown"
+    )
     subject = user if ":" in str(user) else f"{subject_prefix}:{user}"
     return str(session_id), subject
 
@@ -61,9 +63,15 @@ class IntentGuardPlugin(Plugin):
     def __init__(self, config: Any = None, *args: Any, **kwargs: Any) -> None:
         super().__init__(config, *args, **kwargs)
         pc = getattr(self, "config", config)
-        self._engine_url = _plugin_setting(pc, "engine_url", DEFAULT_ENGINE_URL).rstrip("/")
-        self._timeout = float(_plugin_setting(pc, "timeout_seconds", DEFAULT_TIMEOUT_SECONDS))
-        self._session_state_key = _plugin_setting(pc, "session_state_key", "intentguard_session_id")
+        self._engine_url = _plugin_setting(pc, "engine_url", DEFAULT_ENGINE_URL).rstrip(
+            "/"
+        )
+        self._timeout = float(
+            _plugin_setting(pc, "timeout_seconds", DEFAULT_TIMEOUT_SECONDS)
+        )
+        self._session_state_key = _plugin_setting(
+            pc, "session_state_key", "intentguard_session_id"
+        )
         self._subject_prefix = _plugin_setting(pc, "subject_prefix", "user")
         # Fail closed by default: if the engine is unreachable, block the call.
         self._fail_open = bool(_plugin_setting(pc, "fail_open", False))

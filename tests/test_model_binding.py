@@ -11,11 +11,19 @@ from engine.pdp.model import (
 
 
 def test_email_recipient_is_the_bound_resource():
-    assert extract_resource("email.send", {"to": "Bob@Example.com", "body": "x"}) == "bob@example.com"
+    assert (
+        extract_resource("email.send", {"to": "Bob@Example.com", "body": "x"})
+        == "bob@example.com"
+    )
 
 
 def test_explicit_resource_overrides_argument():
-    assert extract_resource("email.send", {"to": "bob@example.com"}, explicit_resource="carol@x.com") == "carol@x.com"
+    assert (
+        extract_resource(
+            "email.send", {"to": "bob@example.com"}, explicit_resource="carol@x.com"
+        )
+        == "carol@x.com"
+    )
 
 
 def test_tool_without_resource_binds_to_any():
@@ -41,4 +49,6 @@ def test_grant_object_distinguishes_resource():
 
 
 def test_grant_object_distinguishes_session():
-    assert grant_object("s1", "email.send", "bob@x") != grant_object("s2", "email.send", "bob@x")
+    assert grant_object("s1", "email.send", "bob@x") != grant_object(
+        "s2", "email.send", "bob@x"
+    )
