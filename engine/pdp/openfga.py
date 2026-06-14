@@ -50,9 +50,7 @@ AUTHORIZATION_MODEL: dict[str, Any] = {
             },
             "metadata": {
                 "relations": {
-                    "session": {
-                        "directly_related_user_types": [{"type": "session"}]
-                    },
+                    "session": {"directly_related_user_types": [{"type": "session"}]},
                     "grantee": {
                         "directly_related_user_types": [
                             {"type": "user"},

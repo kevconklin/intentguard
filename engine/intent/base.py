@@ -40,5 +40,4 @@ class IntentParser(Protocol):
 
     async def parse(
         self, request_text: str, subject: str, session_id: str
-    ) -> ParsedIntent:
-        ...
+    ) -> ParsedIntent: ...

@@ -32,7 +32,12 @@ async def _seed(client):
 
 
 def _decide(tool, args, mode=None):
-    body = {"session_id": "s1", "subject": "user:alice", "tool": tool, "arguments": args}
+    body = {
+        "session_id": "s1",
+        "subject": "user:alice",
+        "tool": tool,
+        "arguments": args,
+    }
     if mode:
         body["mode_override"] = mode
     return body
@@ -41,7 +46,10 @@ def _decide(tool, args, mode=None):
 @pytest.fixture
 def transport_factory():
     def make(app):
-        return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t")
+        return httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://t"
+        )
+
     return make
 
 
@@ -50,10 +58,14 @@ async def test_injection_denied_in_enforce(transport_factory):
     async with transport_factory(app) as client:
         assert (await _seed(client)).status_code == 200
 
-        allowed = await client.post("/v1/decide", json=_decide("email.send", {"to": "bob@example.com"}))
+        allowed = await client.post(
+            "/v1/decide", json=_decide("email.send", {"to": "bob@example.com"})
+        )
         assert allowed.json()["decision"] == "allow"
 
-        injected = await client.post("/v1/decide", json=_decide("email.send", {"to": "attacker@evil.com"}))
+        injected = await client.post(
+            "/v1/decide", json=_decide("email.send", {"to": "attacker@evil.com"})
+        )
         body = injected.json()
         assert body["decision"] == "deny"
         assert body["reason"] == "not_in_intent"
@@ -69,7 +81,9 @@ async def test_injection_logged_but_allowed_in_observe(transport_factory):
     app, audit = _app(Mode.observe)
     async with transport_factory(app) as client:
         await _seed(client)
-        injected = await client.post("/v1/decide", json=_decide("email.send", {"to": "attacker@evil.com"}))
+        injected = await client.post(
+            "/v1/decide", json=_decide("email.send", {"to": "attacker@evil.com"})
+        )
         body = injected.json()
         assert body["decision"] == "allow"
         assert body["would_have_decided"] == "deny"
@@ -84,6 +98,7 @@ async def test_per_request_override_enforces_inside_observe_server(transport_fac
     async with transport_factory(app) as client:
         await _seed(client)
         injected = await client.post(
-            "/v1/decide", json=_decide("email.send", {"to": "attacker@evil.com"}, mode="enforce")
+            "/v1/decide",
+            json=_decide("email.send", {"to": "attacker@evil.com"}, mode="enforce"),
         )
         assert injected.json()["decision"] == "deny"

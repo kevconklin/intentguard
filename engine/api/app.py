@@ -119,7 +119,9 @@ def create_app(
     async def healthz() -> dict:
         return {"status": "ok", "mode": config.mode.value, "backend": config.backend}
 
-    @app.post("/v1/decide", response_model=DecideResponse, response_model_exclude_none=True)
+    @app.post(
+        "/v1/decide", response_model=DecideResponse, response_model_exclude_none=True
+    )
     async def decide_endpoint(request: DecideRequest) -> DecideResponse:
         return await decide(request, store, config, audit)
 
