@@ -29,11 +29,7 @@ try:  # pragma: no cover - exercised only when cpex is installed
         ToolPreInvokeResult,
     )
     from cpex.framework.models import PluginViolation  # type: ignore
-
-    CPEX_AVAILABLE = True
 except Exception:  # ImportError or any cpex import-time error -> use the shim.
-    CPEX_AVAILABLE = False
-
     from dataclasses import dataclass, field
     from typing import Any, Optional
 
@@ -94,7 +90,6 @@ except Exception:  # ImportError or any cpex import-time error -> use the shim.
 
 
 __all__ = [
-    "CPEX_AVAILABLE",
     "Plugin",
     "PluginConfig",
     "PluginContext",

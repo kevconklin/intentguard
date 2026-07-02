@@ -10,7 +10,13 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from engine.pdp.model import grant_object, session_object
+from engine.pdp.model import (
+    REL_GRANTEE,
+    REL_PRINCIPAL,
+    REL_SESSION,
+    grant_object,
+    session_object,
+)
 
 
 class PolicyWriter(Protocol):
@@ -36,10 +42,10 @@ def grant_tuples(
     regardless of backend.
     """
     tuples: list[tuple[str, str, str]] = [
-        (subject, "principal", session_object(session_id)),
+        (subject, REL_PRINCIPAL, session_object(session_id)),
     ]
     for tool, resource in grants:
         obj = grant_object(session_id, tool, resource)
-        tuples.append((subject, "grantee", obj))
-        tuples.append((session_object(session_id), "session", obj))
+        tuples.append((subject, REL_GRANTEE, obj))
+        tuples.append((session_object(session_id), REL_SESSION, obj))
     return tuples

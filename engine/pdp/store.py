@@ -25,21 +25,3 @@ class PolicyStore(Protocol):
     async def check_grant(self, subject: str, grant_object_id: str) -> bool:
         """True if ``subject`` may invoke the grant identified by the object id."""
         ...
-
-
-class CheckOutcome:
-    """Internal outcome of a store interaction, including error signalling."""
-
-    __slots__ = ("session_exists", "allowed", "errored", "error")
-
-    def __init__(
-        self,
-        session_exists: bool = False,
-        allowed: bool = False,
-        errored: bool = False,
-        error: str | None = None,
-    ) -> None:
-        self.session_exists = session_exists
-        self.allowed = allowed
-        self.errored = errored
-        self.error = error

@@ -61,7 +61,9 @@ def verdict_to_result(
     return ToolPreInvokeResult(
         continue_processing=False,
         violation=PluginViolation(
-            reason="not_in_intent",
+            # Pass the engine's reason through (not_in_intent, no_session,
+            # unknown_tool, ...) rather than restating one of them here.
+            reason=verdict.reason,
             description="Action is outside the user's authorized intent for this session.",
             code="INTENTGUARD_DENY",
             details={"reason": verdict.reason, "decision_id": verdict.decision_id},

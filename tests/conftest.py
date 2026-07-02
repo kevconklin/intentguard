@@ -3,18 +3,46 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Optional
 
+import httpx
 import pytest
 
+from engine.api.app import create_app
 from engine.audit import AuditLogger
 from engine.config import EngineConfig
 from engine.intent import provision_session
 from engine.intent.base import AllowedAction, ParsedIntent
 from engine.pdp.memory import make_memory_backend
-from engine.schema import Mode
+from engine.schema import DecideRequest, Mode
 
 SESSION = "sess-1"
 SUBJECT = "user:alice"
+
+
+def make_request(tool: str, args: Optional[dict] = None, **kw) -> DecideRequest:
+    """A DecideRequest for the standard test session/subject."""
+    return DecideRequest(
+        session_id=SESSION, subject=SUBJECT, tool=tool, arguments=args or {}, **kw
+    )
+
+
+def asgi_client(app) -> httpx.AsyncClient:
+    """An httpx client speaking ASGI directly to an in-process app."""
+    return httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://t"
+    )
+
+
+def make_test_app(mode: Mode = Mode.enforce, parser=None, **config_kwargs):
+    """An in-memory engine app for HTTP-level tests. Returns (app, audit)."""
+    audit = AuditLogger()
+    app = create_app(
+        config=EngineConfig(mode=mode, backend="memory", **config_kwargs),
+        audit=audit,
+        parser=parser,
+    )
+    return app, audit
 
 
 @pytest.fixture

@@ -89,3 +89,15 @@ class DecideResponse(BaseModel):
     )
 
     model_config = {"use_enum_values": True}
+
+
+def escalation_prompt(tool: str, resource: str) -> str:
+    """The human-facing approval prompt for an escalated decision.
+
+    Lives beside the ``escalation_prompt`` response field it fills, so the
+    decision core stays free of presentation copy.
+    """
+    return (
+        f"Agent requested '{tool}' on '{resource}', which is outside "
+        f"the authorized intent for this session. Approve this action?"
+    )

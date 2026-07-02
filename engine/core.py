@@ -24,6 +24,7 @@ from engine.config import EngineConfig
 from engine.pdp.model import bind_resource, grant_key, grant_object
 from engine.pdp.store import PolicyStore
 from engine.schema import DecideRequest, DecideResponse, Decision, Mode, Reason
+from engine.schema.decide import escalation_prompt as build_escalation_prompt
 
 
 async def _evaluate_enforce(
@@ -47,17 +48,18 @@ async def _evaluate_enforce(
         return Decision.deny, Reason.missing_resource, None
 
     try:
-        exists = await asyncio.wait_for(
-            store.session_exists(request.session_id, request.subject),
+        # The two lookups are independent; run them concurrently so a decision
+        # costs one store round trip, not two. Each still gets the full
+        # per-call budget since they share the timeout window in parallel.
+        exists, allowed = await asyncio.wait_for(
+            asyncio.gather(
+                store.session_exists(request.session_id, request.subject),
+                store.check_grant(request.subject, grant_object_id),
+            ),
             timeout=config.pdp_timeout_seconds,
         )
         if not exists:
             return Decision.deny, Reason.no_session, None
-
-        allowed = await asyncio.wait_for(
-            store.check_grant(request.subject, grant_object_id),
-            timeout=config.pdp_timeout_seconds,
-        )
     except asyncio.TimeoutError:
         return Decision.deny, Reason.pdp_error_failclosed, "pdp_timeout"
     except Exception as exc:  # noqa: BLE001 - fail closed on any store error
@@ -106,10 +108,7 @@ async def decide(
 
     escalation_prompt = None
     if decision == Decision.escalate:
-        escalation_prompt = (
-            f"Agent requested '{request.tool}' on '{resource}', which is outside "
-            f"the authorized intent for this session. Approve this action?"
-        )
+        escalation_prompt = build_escalation_prompt(request.tool, resource)
 
     decision_id = uuid.uuid4().hex
     audit.record(

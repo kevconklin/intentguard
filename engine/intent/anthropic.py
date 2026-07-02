@@ -28,8 +28,9 @@ from engine.pdp.registry import ToolRegistry, default_registry
 logger = logging.getLogger("intentguard.intent")
 
 # Balanced default for structured extraction. Override via the constructor or
-# INTENTGUARD_ANTHROPIC_MODEL. Use a Haiku model for cheaper/faster extraction.
-DEFAULT_MODEL = os.environ.get("INTENTGUARD_ANTHROPIC_MODEL", "claude-sonnet-4-6")
+# INTENTGUARD_ANTHROPIC_MODEL (read at construction time, not import time).
+# Use a Haiku model for cheaper/faster extraction.
+DEFAULT_MODEL = "claude-sonnet-4-6"
 
 # An extractor turns (request_text, allowed_tool_names) into raw {tool, resource}
 # dicts. The default calls Anthropic; tests inject a deterministic stand-in.
@@ -118,22 +119,28 @@ class AnthropicIntentParser:
     def __init__(
         self,
         registry: Optional[ToolRegistry] = None,
-        model: str = DEFAULT_MODEL,
+        model: Optional[str] = None,
         api_key: Optional[str] = None,
         extractor: Optional[RawExtractor] = None,
         max_tokens: int = 1024,
     ) -> None:
         self._registry = registry or default_registry()
-        self._model = model
+        self._model = model or os.environ.get(
+            "INTENTGUARD_ANTHROPIC_MODEL", DEFAULT_MODEL
+        )
         self._api_key = api_key
         self._extractor = extractor or self._anthropic_extract
         self._max_tokens = max_tokens
+        # The registry is immutable, so the tool list and the enum-constrained
+        # extraction tool are fixed at construction — no per-parse rebuild.
+        self._tool_names = self._registry.tool_names()
+        self._intent_tool = _build_intent_tool(self._tool_names)
+        self._client = None
 
     async def parse(
         self, request_text: str, subject: str, session_id: str
     ) -> ParsedIntent:
-        tool_names = self._registry.tool_names()
-        raw = await self._extractor(request_text, tool_names)
+        raw = await self._extractor(request_text, self._tool_names)
         kept, dropped = validate_extracted(raw, self._registry)
         if dropped:
             logger.warning(
@@ -145,18 +152,22 @@ class AnthropicIntentParser:
             session_id=session_id, subject=subject, allowed_actions=kept
         )
 
+    def _get_client(self):
+        if self._client is None:
+            from anthropic import AsyncAnthropic  # lazy, optional dependency
+
+            self._client = AsyncAnthropic(api_key=self._api_key)
+        return self._client
+
     async def _anthropic_extract(
         self, request_text: str, tool_names: list[str]
     ) -> list[dict]:
-        from anthropic import AsyncAnthropic  # lazy, optional dependency
-
-        client = AsyncAnthropic(api_key=self._api_key)
-        tool = _build_intent_tool(tool_names)
-        message = await client.messages.create(
+        # One SDK client (and connection pool) per parser, created on first use.
+        message = await self._get_client().messages.create(
             model=self._model,
             max_tokens=self._max_tokens,
             system=SYSTEM_PROMPT,
-            tools=[tool],
+            tools=[self._intent_tool],
             tool_choice={"type": "tool", "name": "record_authorized_actions"},
             messages=[
                 {

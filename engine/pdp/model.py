@@ -26,6 +26,14 @@ ANY_RESOURCE = "*"
 # Provisioning a compound grant supplies the parts pre-joined with this.
 RESOURCE_SEPARATOR = "&"
 
+# Relation names shared by the authorization model (openfga.py), the tuple
+# writer (writer.py), and both backends. Defined once here — the module that
+# already owns grant identity — so a rename cannot silently diverge.
+REL_PRINCIPAL = "principal"
+REL_GRANTEE = "grantee"
+REL_SESSION = "session"
+REL_CAN_INVOKE = "can_invoke"
+
 
 @dataclass(frozen=True)
 class ResourceBinding:
@@ -83,16 +91,6 @@ def bind_resource(
         parts.append(normalize_resource(value))
     resource = parts[0] if len(parts) == 1 else RESOURCE_SEPARATOR.join(parts)
     return ResourceBinding(resource, True)
-
-
-def extract_resource(
-    tool: str,
-    arguments: dict[str, Any],
-    explicit_resource: Optional[str] = None,
-    registry: Optional[ToolRegistry] = None,
-) -> str:
-    """The resource string for a call (thin wrapper over ``bind_resource``)."""
-    return bind_resource(tool, arguments, explicit_resource, registry).resource
 
 
 def grant_key(session_id: str, tool: str, resource: str) -> str:

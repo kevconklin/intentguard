@@ -8,6 +8,7 @@ only writes, and they share an opaque backing store.
 
 from __future__ import annotations
 
+from engine.pdp.model import REL_GRANTEE, REL_PRINCIPAL, session_object
 from engine.pdp.writer import grant_tuples
 
 
@@ -23,9 +24,6 @@ class InMemoryBacking:
     def has(self, t: tuple[str, str, str]) -> bool:
         return t in self._tuples
 
-    def snapshot(self) -> set[tuple[str, str, str]]:
-        return set(self._tuples)
-
 
 class InMemoryPolicyStore:
     """Read-only view over the backing store (decision path)."""
@@ -34,12 +32,12 @@ class InMemoryPolicyStore:
         self._backing = backing
 
     async def session_exists(self, session_id: str, subject: str) -> bool:
-        from engine.pdp.model import session_object
-
-        return self._backing.has((subject, "principal", session_object(session_id)))
+        return self._backing.has((subject, REL_PRINCIPAL, session_object(session_id)))
 
     async def check_grant(self, subject: str, grant_object_id: str) -> bool:
-        return self._backing.has((subject, "grantee", grant_object_id))
+        # The direct grantee tuple is the in-memory equivalent of the model's
+        # computed can_invoke relation (can_invoke = grantee in model.fga).
+        return self._backing.has((subject, REL_GRANTEE, grant_object_id))
 
 
 class InMemoryPolicyWriter:

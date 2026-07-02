@@ -11,8 +11,8 @@ from pydantic import ValidationError
 from engine.config import EngineConfig
 from engine.core import decide
 from engine.pdp.registry import ToolRegistry, ToolSpec, default_registry
-from engine.schema import DecideRequest, Decision, Mode, Reason
-from tests.conftest import SESSION, SUBJECT
+from engine.schema import Decision, Mode, Reason
+from tests.conftest import make_request as _req
 
 # ── registry loading & validation ──────────────────────────────────────────
 
@@ -26,10 +26,10 @@ def test_default_registry_knows_shipped_tools():
 
 def test_default_registry_resource_args():
     reg = default_registry()
-    assert reg.resource_arg("email.send") == "to"
-    assert reg.resource_arg("calendar.read") is None  # no resource
-    assert reg.resource_arg("file.write") == "path"
-    assert reg.resource_arg("nope.unknown") is None  # unknown
+    assert reg.resource_args("email.send") == ["to"]
+    assert reg.resource_args("calendar.read") == []  # no resource
+    assert reg.resource_args("file.write") == ["path"]
+    assert reg.resource_args("nope.unknown") == []  # unknown
 
 
 def test_load_from_custom_json_file(tmp_path):
@@ -50,7 +50,7 @@ def test_load_from_custom_json_file(tmp_path):
     )
     reg = ToolRegistry.load(path)
     assert reg.is_known("slack.post")
-    assert reg.resource_arg("slack.post") == "channel"
+    assert reg.resource_args("slack.post") == ["channel"]
     assert not reg.is_known("email.send")
 
 
@@ -70,12 +70,6 @@ def test_duplicate_tool_rejected():
 
 
 # ── decision-path behaviour ─────────────────────────────────────────────────
-
-
-def _req(tool: str, args: dict | None = None, **kw) -> DecideRequest:
-    return DecideRequest(
-        session_id=SESSION, subject=SUBJECT, tool=tool, arguments=args or {}, **kw
-    )
 
 
 async def test_unknown_tool_denied_by_default(store, enforce_config, audit, seeded):

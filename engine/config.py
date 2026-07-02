@@ -12,6 +12,29 @@ from dataclasses import dataclass, field
 from engine.pdp.registry import ToolRegistry, default_registry
 from engine.schema import Mode
 
+# Defaults shared by the dataclass fields and the env fallbacks below, so the
+# two construction paths cannot drift.
+DEFAULT_PDP_TIMEOUT_SECONDS = 2.0
+DEFAULT_BACKEND = "memory"
+DEFAULT_OPENFGA_API_URL = "http://localhost:8080"
+DEFAULT_INTENT_PARSER = "mock"
+
+_FALSY = {"0", "false", "no"}
+_TRUTHY = {"1", "true", "yes"}
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    """Parse a boolean env var, preserving the flag's default when unset.
+
+    A default-True flag stays True unless explicitly disabled (falsy value);
+    a default-False flag stays False unless explicitly enabled (truthy value).
+    """
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    value = raw.strip().lower()
+    return value not in _FALSY if default else value in _TRUTHY
+
 
 @dataclass(frozen=True)
 class EngineConfig:
@@ -35,16 +58,16 @@ class EngineConfig:
     """
 
     mode: Mode = Mode.observe
-    pdp_timeout_seconds: float = 2.0
-    backend: str = "memory"
-    openfga_api_url: str = "http://localhost:8080"
+    pdp_timeout_seconds: float = DEFAULT_PDP_TIMEOUT_SECONDS
+    backend: str = DEFAULT_BACKEND
+    openfga_api_url: str = DEFAULT_OPENFGA_API_URL
     openfga_store_id: str | None = None
     openfga_model_id: str | None = None
     escalatable_tools: frozenset[str] = field(default_factory=frozenset)
     audit_path: str | None = None
     tool_registry: ToolRegistry = field(default_factory=default_registry)
     enforce_tool_allowlist: bool = True
-    intent_parser: str = "mock"
+    intent_parser: str = DEFAULT_INTENT_PARSER
     provisioning_token: str | None = None
     require_provisioning_auth: bool = False
 
@@ -64,11 +87,14 @@ class EngineConfig:
         return EngineConfig(
             mode=mode,
             pdp_timeout_seconds=float(
-                os.environ.get("INTENTGUARD_PDP_TIMEOUT_SECONDS", "2.0")
+                os.environ.get(
+                    "INTENTGUARD_PDP_TIMEOUT_SECONDS",
+                    str(DEFAULT_PDP_TIMEOUT_SECONDS),
+                )
             ),
-            backend=os.environ.get("INTENTGUARD_BACKEND", "memory"),
+            backend=os.environ.get("INTENTGUARD_BACKEND", DEFAULT_BACKEND),
             openfga_api_url=os.environ.get(
-                "INTENTGUARD_OPENFGA_API_URL", "http://localhost:8080"
+                "INTENTGUARD_OPENFGA_API_URL", DEFAULT_OPENFGA_API_URL
             ),
             openfga_store_id=os.environ.get("INTENTGUARD_OPENFGA_STORE_ID") or None,
             openfga_model_id=os.environ.get("INTENTGUARD_OPENFGA_MODEL_ID") or None,
@@ -77,14 +103,14 @@ class EngineConfig:
             ),
             audit_path=os.environ.get("INTENTGUARD_AUDIT_PATH") or None,
             tool_registry=registry,
-            enforce_tool_allowlist=os.environ.get(
-                "INTENTGUARD_ENFORCE_TOOL_ALLOWLIST", "true"
-            ).lower()
-            not in {"0", "false", "no"},
-            intent_parser=os.environ.get("INTENTGUARD_INTENT_PARSER", "mock"),
+            enforce_tool_allowlist=_env_bool(
+                "INTENTGUARD_ENFORCE_TOOL_ALLOWLIST", default=True
+            ),
+            intent_parser=os.environ.get(
+                "INTENTGUARD_INTENT_PARSER", DEFAULT_INTENT_PARSER
+            ),
             provisioning_token=os.environ.get("INTENTGUARD_PROVISIONING_TOKEN") or None,
-            require_provisioning_auth=os.environ.get(
-                "INTENTGUARD_REQUIRE_PROVISIONING_AUTH", "false"
-            ).lower()
-            in {"1", "true", "yes"},
+            require_provisioning_auth=_env_bool(
+                "INTENTGUARD_REQUIRE_PROVISIONING_AUTH", default=False
+            ),
         )

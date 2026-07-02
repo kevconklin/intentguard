@@ -12,6 +12,6 @@ This module deliberately does NOT import the writer, so that importing the
 decision-path surface cannot pull in a write path.
 """
 
-from engine.pdp.store import CheckOutcome, PolicyStore
+from engine.pdp.store import PolicyStore
 
-__all__ = ["PolicyStore", "CheckOutcome"]
+__all__ = ["PolicyStore"]

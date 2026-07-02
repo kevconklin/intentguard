@@ -13,11 +13,12 @@ components: a read-only ``PolicyStore`` for decisions and a write-only
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from dataclasses import asdict
 from typing import Optional
 
 from fastapi import Depends, FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from engine.api.auth import make_provisioning_guard, warn_if_unauthenticated
 from engine.audit import AuditLogger
@@ -28,12 +29,12 @@ from engine.intent.provision import provision_session
 from engine.schema import DecideRequest, DecideResponse
 
 
-class ProvisionRequest(BaseModel):
-    """Trusted session-seed request: the allowed actions for a session."""
+class ProvisionRequest(ParsedIntent):
+    """Trusted session-seed request: the allowed actions for a session.
 
-    session_id: str
-    subject: str
-    allowed_actions: list[AllowedAction] = Field(default_factory=list)
+    Same shape (and validation) as ``ParsedIntent`` — the endpoint hands it
+    straight to provisioning.
+    """
 
 
 class ProvisionResponse(BaseModel):
@@ -49,9 +50,7 @@ class ParseProvisionRequest(BaseModel):
     request_text: str
 
 
-class ParseProvisionResponse(BaseModel):
-    session_id: str
-    grants_written: int
+class ParseProvisionResponse(ProvisionResponse):
     allowed_actions: list[AllowedAction]
 
 
@@ -111,9 +110,18 @@ def create_app(
     warn_if_unauthenticated(config)
     require_provisioning = Depends(make_provisioning_guard(config))
 
-    app = FastAPI(title="IntentGuard", version="0.1.0")
-    app.state.config = config
-    app.state.audit = audit
+    @asynccontextmanager
+    async def _lifespan(_: FastAPI):
+        yield
+        # Release long-lived resources (OpenFGA connection pools, the audit
+        # file handle). Components without a close() are skipped.
+        for component in (store, writer):
+            closer = getattr(component, "close", None)
+            if closer:
+                await closer()
+        audit.close()
+
+    app = FastAPI(title="IntentGuard", version="0.1.0", lifespan=_lifespan)
 
     @app.get("/healthz")
     async def healthz() -> dict:
@@ -134,12 +142,7 @@ def create_app(
         # Trusted path: seed the session's permissions. In Milestone 1 these
         # come from config / the mock parser. The LLM/untrusted content never
         # reaches this endpoint.
-        intent = ParsedIntent(
-            session_id=request.session_id,
-            subject=request.subject,
-            allowed_actions=request.allowed_actions,
-        )
-        count = await provision_session(intent, writer)
+        count = await provision_session(request, writer)
         return ProvisionResponse(session_id=request.session_id, grants_written=count)
 
     @app.post(
@@ -171,7 +174,7 @@ def create_app(
 
     @app.get("/v1/audit")
     async def audit_endpoint(limit: int = 100) -> dict:
-        entries = [asdict(e) for e in audit.entries()[-limit:]]
+        entries = [asdict(e) for e in audit.entries(limit)]
         return {"count": len(entries), "entries": entries}
 
     return app
