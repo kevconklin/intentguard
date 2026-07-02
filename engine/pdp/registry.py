@@ -19,7 +19,6 @@ from __future__ import annotations
 import functools
 import json
 from pathlib import Path
-from typing import Optional
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -77,26 +76,13 @@ class ToolRegistry:
         """True if ``tool`` is in the allowlist."""
         return tool in self._by_name
 
-    def spec(self, tool: str) -> Optional[ToolSpec]:
-        return self._by_name.get(tool)
-
     def resource_args(self, tool: str) -> list[str]:
         """The argument key(s) forming ``tool``'s resource (empty = any/unknown)."""
         spec = self._by_name.get(tool)
         return list(spec.resource_args) if spec else []
 
-    def resource_arg(self, tool: str) -> Optional[str]:
-        """The first resource argument for ``tool``, or None (no resource/unknown)."""
-        args = self.resource_args(tool)
-        return args[0] if args else None
-
     def tool_names(self) -> list[str]:
         return list(self._by_name)
-
-    # ── construction ────────────────────────────────────────────────────────
-    @classmethod
-    def from_specs(cls, specs: list[ToolSpec]) -> "ToolRegistry":
-        return cls(specs)
 
     @classmethod
     def load(cls, path: str | Path) -> "ToolRegistry":

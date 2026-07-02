@@ -41,11 +41,15 @@ class AuditLogger:
     """Thread-safe append-only logger with an in-memory mirror."""
 
     def __init__(self, path: Optional[str] = None) -> None:
-        self._path = path
         self._lock = threading.Lock()
         self._entries: list[AuditEntry] = []
+        self._fh = None
         if path:
             os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+            # Append only: opened once in 'a'; the logger never seeks back or
+            # truncates. Kept open for the logger's lifetime so each record
+            # costs one write, not an open/close pair.
+            self._fh = open(path, "a", encoding="utf-8")  # noqa: SIM115
 
     @staticmethod
     def _now() -> str:
@@ -56,14 +60,25 @@ class AuditLogger:
         entry = AuditEntry(timestamp=self._now(), **fields)
         with self._lock:
             self._entries.append(entry)
-            if self._path:
-                # Append only: open in 'a', write one line, flush. Never seek
-                # back or truncate.
-                with open(self._path, "a", encoding="utf-8") as fh:
-                    fh.write(entry.to_json() + "\n")
+            if self._fh:
+                self._fh.write(entry.to_json() + "\n")
+                self._fh.flush()
         return entry
 
-    def entries(self) -> list[AuditEntry]:
-        """Return a copy of the in-memory mirror (newest last)."""
+    def entries(self, limit: Optional[int] = None) -> list[AuditEntry]:
+        """Return a copy of the in-memory mirror (newest last).
+
+        ``limit`` returns only the newest N entries without copying the
+        full history.
+        """
         with self._lock:
+            if limit is not None:
+                return list(self._entries[-limit:])
             return list(self._entries)
+
+    def close(self) -> None:
+        """Release the on-disk handle (entries already written are untouched)."""
+        with self._lock:
+            if self._fh:
+                self._fh.close()
+                self._fh = None

@@ -35,7 +35,7 @@ from engine.audit import AuditLogger  # noqa: E402
 from engine.config import EngineConfig  # noqa: E402
 from engine.intent import MockIntentParser  # noqa: E402
 from engine.intent.base import AllowedAction  # noqa: E402
-from engine.schema import Mode  # noqa: E402
+from engine.schema import SCHEMA_VERSION, Mode  # noqa: E402
 
 HERE = os.path.dirname(__file__)
 
@@ -51,7 +51,7 @@ def _banner(title: str) -> None:
     print("=" * 68)
 
 
-async def _client(app) -> httpx.AsyncClient:
+def _client(app) -> httpx.AsyncClient:
     transport = httpx.ASGITransport(app=app)
     return httpx.AsyncClient(transport=transport, base_url="http://engine")
 
@@ -76,7 +76,7 @@ async def run() -> int:
     for a in intent.allowed_actions:
         print(f"  granted : {a.tool} -> {a.resource or '*'}")
 
-    async with await _client(app) as client:
+    async with _client(app) as client:
         seed = await client.post(
             "/v1/sessions",
             json={
@@ -90,7 +90,7 @@ async def run() -> int:
 
         def decide_body(tool: str, args: dict, mode: str | None = None) -> dict:
             body = {
-                "schema_version": "1",
+                "schema_version": SCHEMA_VERSION,
                 "session_id": intent.session_id,
                 "subject": intent.subject,
                 "tool": tool,
@@ -102,21 +102,24 @@ async def run() -> int:
 
         _banner("2. (a) ALLOWED CALL: email.send -> bob@example.com")
         r = await client.post("/v1/decide", json=decide_body("email.send", {"to": "bob@example.com", "body": "notes"}))
-        _print_decision(r.json())
-        ok_a = r.json()["decision"] == "allow"
+        d = r.json()
+        _print_decision(d)
+        ok_a = d["decision"] == "allow"
 
         _banner("3. (b) INJECTED CALL (enforce): email.send -> attacker@evil.com")
         print("  (Simulates a prompt injection from untrusted tool output that")
         print("   redirects the agent to exfiltrate to an attacker address.)")
         r = await client.post("/v1/decide", json=decide_body("email.send", {"to": "attacker@evil.com", "body": "secrets"}))
-        _print_decision(r.json())
-        ok_b = r.json()["decision"] == "deny"
+        d = r.json()
+        _print_decision(d)
+        ok_b = d["decision"] == "deny"
 
         _banner("4. (b') SAME INJECTED CALL in OBSERVE mode")
         print("  observe mode always allows but records the would-be decision.")
         r = await client.post("/v1/decide", json=decide_body("email.send", {"to": "attacker@evil.com"}, mode="observe"))
-        _print_decision(r.json())
-        ok_c = r.json()["decision"] == "allow" and r.json()["would_have_decided"] == "deny"
+        d = r.json()
+        _print_decision(d)
+        ok_c = d["decision"] == "allow" and d["would_have_decided"] == "deny"
 
         _banner("5. APPEND-ONLY AUDIT LOG (OWASP Agentic Top 10 tagged)")
         audit_resp = await client.get("/v1/audit")

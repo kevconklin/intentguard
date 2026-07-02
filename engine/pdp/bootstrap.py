@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import sys
 
+from engine.config import DEFAULT_OPENFGA_API_URL
 from engine.pdp.openfga import bootstrap
 
 
@@ -27,5 +28,5 @@ async def _main(api_url: str) -> None:
 
 
 if __name__ == "__main__":
-    url = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8080"
+    url = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_OPENFGA_API_URL
     asyncio.run(_main(url))

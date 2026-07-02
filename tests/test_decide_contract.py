@@ -5,14 +5,9 @@ from __future__ import annotations
 import dataclasses
 
 from engine.core import decide
-from engine.schema import DecideRequest, Decision, Mode, Reason
-from tests.conftest import SESSION, SUBJECT, FailingStore, SlowStore
-
-
-def _req(tool: str, args: dict, **kw) -> DecideRequest:
-    return DecideRequest(
-        session_id=SESSION, subject=SUBJECT, tool=tool, arguments=args, **kw
-    )
+from engine.schema import Decision, Mode, Reason
+from tests.conftest import FailingStore, SlowStore
+from tests.conftest import make_request as _req
 
 
 async def test_allow_in_intent(store, enforce_config, audit, seeded):

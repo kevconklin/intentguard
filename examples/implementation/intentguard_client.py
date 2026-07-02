@@ -20,6 +20,10 @@ from typing import Any, AsyncIterator, Optional
 
 import httpx
 
+# Engine wire-contract version (mirrors engine.schema.SCHEMA_VERSION; this file
+# stays engine-import-free so it can be copy-pasted into any project).
+SCHEMA_VERSION = "1"
+
 
 class IntentDenied(Exception):
     """Raised by ``enforce()`` when a tool call is not within the user's intent."""
@@ -69,7 +73,7 @@ class IntentGuardClient:
     ) -> dict:
         """Authorize a single tool call. Returns the full DecideResponse dict."""
         body: dict[str, Any] = {
-            "schema_version": "1",
+            "schema_version": SCHEMA_VERSION,
             "session_id": session_id,
             "subject": subject,
             "tool": tool,

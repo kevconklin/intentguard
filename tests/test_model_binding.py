@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from engine.pdp.model import (
     ANY_RESOURCE,
-    extract_resource,
+    bind_resource,
     grant_object,
     normalize_resource,
 )
@@ -12,26 +12,26 @@ from engine.pdp.model import (
 
 def test_email_recipient_is_the_bound_resource():
     assert (
-        extract_resource("email.send", {"to": "Bob@Example.com", "body": "x"})
+        bind_resource("email.send", {"to": "Bob@Example.com", "body": "x"}).resource
         == "bob@example.com"
     )
 
 
 def test_explicit_resource_overrides_argument():
     assert (
-        extract_resource(
+        bind_resource(
             "email.send", {"to": "bob@example.com"}, explicit_resource="carol@x.com"
-        )
+        ).resource
         == "carol@x.com"
     )
 
 
 def test_tool_without_resource_binds_to_any():
-    assert extract_resource("calendar.read", {}) == ANY_RESOURCE
+    assert bind_resource("calendar.read", {}).resource == ANY_RESOURCE
 
 
 def test_unknown_tool_binds_to_any():
-    assert extract_resource("some.unknown.tool", {"x": 1}) == ANY_RESOURCE
+    assert bind_resource("some.unknown.tool", {"x": 1}).resource == ANY_RESOURCE
 
 
 def test_list_resource_is_normalized_stably():

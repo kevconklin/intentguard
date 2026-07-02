@@ -2,28 +2,13 @@
 
 from __future__ import annotations
 
-import httpx
-
 from engine.api.app import create_app
 from engine.audit import AuditLogger
 from engine.config import EngineConfig
 from engine.intent.base import AllowedAction, ParsedIntent
 from engine.intent.mock import MockIntentParser
 from engine.schema import Mode
-
-
-def _client(app):
-    return httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://t"
-    )
-
-
-def _app(parser):
-    return create_app(
-        config=EngineConfig(mode=Mode.enforce, backend="memory"),
-        audit=AuditLogger(),
-        parser=parser,
-    )
+from tests.conftest import asgi_client, make_test_app
 
 
 async def test_parse_provision_then_decide_end_to_end():
@@ -34,8 +19,8 @@ async def test_parse_provision_then_decide_end_to_end():
             AllowedAction(tool="calendar.read", resource=None),
         ]
     )
-    app = _app(parser)
-    async with _client(app) as client:
+    app, _ = make_test_app(parser=parser)
+    async with asgi_client(app) as client:
         r = await client.post(
             "/v1/sessions:parse",
             json={
@@ -81,8 +66,8 @@ class _FailingParser:
 
 
 async def test_parser_failure_provisions_nothing():
-    app = _app(_FailingParser())
-    async with _client(app) as client:
+    app, _ = make_test_app(parser=_FailingParser())
+    async with asgi_client(app) as client:
         r = await client.post(
             "/v1/sessions:parse",
             json={
@@ -115,5 +100,5 @@ async def test_anthropic_backend_selected_without_network():
         config=EngineConfig(mode=Mode.enforce, intent_parser="anthropic"),
         audit=AuditLogger(),
     )
-    async with _client(app) as client:
+    async with asgi_client(app) as client:
         assert (await client.get("/healthz")).status_code == 200

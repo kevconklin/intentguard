@@ -28,6 +28,10 @@ from adapters.contextforge.verdict import EngineVerdict, verdict_to_result
 DEFAULT_ENGINE_URL = "http://localhost:8000"
 DEFAULT_TIMEOUT_SECONDS = 5.0
 
+# Engine wire-contract version (mirrors engine.schema.SCHEMA_VERSION; the
+# adapter deliberately does not import the engine so it can deploy standalone).
+SCHEMA_VERSION = "1"
+
 
 def _plugin_setting(plugin_config: Any, key: str, default: Any) -> Any:
     """Read a plugin-specific setting from the cpex PluginConfig.config dict."""
@@ -75,6 +79,9 @@ class IntentGuardPlugin(Plugin):
         self._subject_prefix = _plugin_setting(pc, "subject_prefix", "user")
         # Fail closed by default: if the engine is unreachable, block the call.
         self._fail_open = bool(_plugin_setting(pc, "fail_open", False))
+        # One HTTP client (and connection pool) for the plugin's lifetime, so
+        # every tool call reuses connections instead of re-handshaking.
+        self._http: httpx.AsyncClient | None = None
 
     async def tool_pre_invoke(
         self, payload: ToolPreInvokePayload, context: PluginContext, *args: Any
@@ -83,7 +90,7 @@ class IntentGuardPlugin(Plugin):
             context, self._session_state_key, self._subject_prefix
         )
         decide_request = {
-            "schema_version": "1",
+            "schema_version": SCHEMA_VERSION,
             "session_id": session_id,
             "subject": subject,
             "tool": payload.name,
@@ -98,12 +105,13 @@ class IntentGuardPlugin(Plugin):
         return verdict_to_result(verdict, payload)
 
     async def _call_engine(self, decide_request: dict) -> EngineVerdict:
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.post(
-                f"{self._engine_url}/v1/decide", json=decide_request
+        if self._http is None:
+            self._http = httpx.AsyncClient(
+                base_url=self._engine_url, timeout=self._timeout
             )
-            resp.raise_for_status()
-            data = resp.json()
+        resp = await self._http.post("/v1/decide", json=decide_request)
+        resp.raise_for_status()
+        data = resp.json()
         return EngineVerdict(
             decision=data["decision"],
             reason=data["reason"],
@@ -111,8 +119,14 @@ class IntentGuardPlugin(Plugin):
             escalation_prompt=data.get("escalation_prompt"),
         )
 
+    async def shutdown(self) -> None:
+        """Release the HTTP client (cpex calls plugin shutdown hooks)."""
+        if self._http is not None:
+            await self._http.aclose()
+            self._http = None
+
     def _on_engine_error(
-        self, payload: ToolPreInvokeResult, exc: Exception
+        self, payload: ToolPreInvokePayload, exc: Exception
     ) -> ToolPreInvokeResult:
         """Engine unreachable. Fail closed (block) unless fail_open is set."""
         if self._fail_open:

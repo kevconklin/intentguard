@@ -12,8 +12,9 @@ from engine.pdp.model import (
     grant_object,
 )
 from engine.pdp.registry import ToolRegistry, ToolSpec
-from engine.schema import DecideRequest, Decision, Mode, Reason
+from engine.schema import Decision, Mode, Reason
 from tests.conftest import SESSION, SUBJECT
+from tests.conftest import make_request as _req
 
 # A registry with a single-arg tool, a compound tool, and a no-resource tool.
 REG = ToolRegistry(
@@ -93,10 +94,6 @@ def test_singular_resource_arg_coerced():
 
 
 # ── decision path ───────────────────────────────────────────────────────────
-
-
-def _req(tool: str, args: dict) -> DecideRequest:
-    return DecideRequest(session_id=SESSION, subject=SUBJECT, tool=tool, arguments=args)
 
 
 async def test_missing_required_arg_denied_failclosed(store, audit, seeded):
