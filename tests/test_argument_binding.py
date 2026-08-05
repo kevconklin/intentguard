@@ -74,9 +74,23 @@ def test_blank_required_arg_is_incomplete():
     assert b.complete is False
 
 
-def test_explicit_resource_overrides_and_is_complete():
-    b = bind_resource("http.request", {}, explicit_resource="X", registry=REG)
+def test_explicit_resource_overrides_when_trusted():
+    b = bind_resource(
+        "http.request",
+        {},
+        explicit_resource="X",
+        registry=REG,
+        trust_explicit_resource=True,
+    )
     assert b.resource == "x" and b.complete
+
+
+def test_explicit_resource_ignored_by_default():
+    # Secure default: the caller-supplied resource is NOT trusted, so binding
+    # is derived from arguments. http.request needs host+path (both missing
+    # here) -> incomplete, which the decision path denies (fail closed).
+    b = bind_resource("http.request", {}, explicit_resource="X", registry=REG)
+    assert b.complete is False
 
 
 def test_list_valued_single_arg_normalized_stably():

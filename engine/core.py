@@ -89,7 +89,11 @@ async def decide(
     effective_mode = request.mode_override or config.mode
 
     binding = bind_resource(
-        request.tool, request.arguments, request.resource, config.tool_registry
+        request.tool,
+        request.arguments,
+        request.resource,
+        config.tool_registry,
+        trust_explicit_resource=config.trust_explicit_resource,
     )
     resource = binding.resource
     grant_object_id = grant_object(request.session_id, request.tool, resource)

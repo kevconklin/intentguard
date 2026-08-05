@@ -89,6 +89,10 @@ class IntentGuardPlugin(Plugin):
         session_id, subject = _resolve_session_and_subject(
             context, self._session_state_key, self._subject_prefix
         )
+        # Send only the real tool arguments and let the engine bind the
+        # resource from them. We intentionally do NOT set an explicit
+        # `resource`: the engine ignores it by default, and forwarding one
+        # derived from untrusted content would be a bypass vector.
         decide_request = {
             "schema_version": SCHEMA_VERSION,
             "session_id": session_id,

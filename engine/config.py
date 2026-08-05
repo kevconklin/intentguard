@@ -55,6 +55,12 @@ class EngineConfig:
         enforce_tool_allowlist: When True (the secure default), a tool not in
             the registry is denied (reason ``unknown_tool``) before any store
             lookup. Set False to permit unregistered tool names.
+        trust_explicit_resource: When False (the secure default), an explicit
+            ``resource`` on a decide request is ignored and the resource is
+            bound from ``arguments``. This prevents a request from binding to a
+            granted resource while its real arguments target another. Set True
+            only if the caller of ``/v1/decide`` is fully trusted to set
+            ``resource`` from the actual tool call.
     """
 
     mode: Mode = Mode.observe
@@ -70,6 +76,7 @@ class EngineConfig:
     intent_parser: str = DEFAULT_INTENT_PARSER
     provisioning_token: str | None = None
     require_provisioning_auth: bool = False
+    trust_explicit_resource: bool = False
 
     @staticmethod
     def from_env() -> "EngineConfig":
@@ -112,5 +119,8 @@ class EngineConfig:
             provisioning_token=os.environ.get("INTENTGUARD_PROVISIONING_TOKEN") or None,
             require_provisioning_auth=_env_bool(
                 "INTENTGUARD_REQUIRE_PROVISIONING_AUTH", default=False
+            ),
+            trust_explicit_resource=_env_bool(
+                "INTENTGUARD_TRUST_EXPLICIT_RESOURCE", default=False
             ),
         )
