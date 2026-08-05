@@ -113,6 +113,7 @@ uvicorn engine.api.server:app
 | `INTENTGUARD_AUDIT_PATH` | — | JSONL audit log path (in-memory if unset) |
 | `INTENTGUARD_TOOL_REGISTRY_PATH` | bundled `tools.json` | known-tools allowlist + per-tool resource binding |
 | `INTENTGUARD_ENFORCE_TOOL_ALLOWLIST` | `true` | deny tools not in the registry (`unknown_tool`) |
+| `INTENTGUARD_TRUST_EXPLICIT_RESOURCE` | `false` | trust a request's explicit `resource` field instead of binding from `arguments` (only if the decide caller is fully trusted) |
 | `INTENTGUARD_INTENT_PARSER` | `mock` | parser for `/v1/sessions:parse` — `mock` or `anthropic` |
 | `INTENTGUARD_ANTHROPIC_MODEL` | `claude-sonnet-4-6` | model for the Anthropic intent parser |
 | `INTENTGUARD_PROVISIONING_TOKEN` | — | Bearer token required to call the provisioning (write) endpoints |
@@ -136,6 +137,14 @@ uvicorn engine.api.server:app
   "escalation_prompt":"...",       // present only when decision is escalate
   "decision_id":"..." }            // correlates to the audit log entry
 ```
+
+> **On the `resource` field.** By default the engine ignores an explicit
+> `resource` and binds the security-relevant resource from `arguments`, so a
+> request cannot claim a granted resource while its arguments target another.
+> Only set `resource` from data you trust as much as the tool call itself, and
+> only enable `INTENTGUARD_TRUST_EXPLICIT_RESOURCE=true` when the caller of
+> `/v1/decide` (e.g. your gateway adapter) is fully trusted to populate it from
+> the real invocation. Untrusted content must never reach this field.
 
 ### Provisioning (the trusted write path)
 

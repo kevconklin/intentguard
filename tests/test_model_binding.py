@@ -17,12 +17,26 @@ def test_email_recipient_is_the_bound_resource():
     )
 
 
-def test_explicit_resource_overrides_argument():
+def test_explicit_resource_overrides_argument_when_trusted():
+    assert (
+        bind_resource(
+            "email.send",
+            {"to": "bob@example.com"},
+            explicit_resource="carol@x.com",
+            trust_explicit_resource=True,
+        ).resource
+        == "carol@x.com"
+    )
+
+
+def test_explicit_resource_ignored_by_default_binds_from_argument():
+    # Secure default: the explicit resource is not trusted; the bound resource
+    # comes from the argument, not the caller's claim.
     assert (
         bind_resource(
             "email.send", {"to": "bob@example.com"}, explicit_resource="carol@x.com"
         ).resource
-        == "carol@x.com"
+        == "bob@example.com"
     )
 
 

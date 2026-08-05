@@ -66,16 +66,26 @@ def bind_resource(
     arguments: dict[str, Any],
     explicit_resource: Optional[str] = None,
     registry: Optional[ToolRegistry] = None,
+    *,
+    trust_explicit_resource: bool = False,
 ) -> ResourceBinding:
     """Resolve the resource a tool call targets, per the tool registry.
 
-    * An explicit resource on the request always wins (complete).
+    * An explicit resource on the request wins (complete) ONLY when
+      ``trust_explicit_resource`` is set. It is off by default: the caller-
+      supplied ``resource`` is a potential bypass (it would let a request bind
+      to a granted resource while the real ``arguments`` point elsewhere), so
+      binding is derived from ``arguments`` unless the deployment opts in.
     * A tool with no declared resource arguments binds to ANY_RESOURCE.
     * A tool with declared resource arguments binds the combination of their
       values (in declared order). If any declared argument is missing/blank the
       binding is incomplete — a fail-closed condition the decision path denies.
     """
-    if explicit_resource is not None and explicit_resource != "":
+    if (
+        trust_explicit_resource
+        and explicit_resource is not None
+        and explicit_resource != ""
+    ):
         return ResourceBinding(normalize_resource(explicit_resource), True)
 
     reg = registry or default_registry()
