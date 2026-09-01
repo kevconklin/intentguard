@@ -197,3 +197,12 @@ td.code { font-family:var(--mono); }
   margin:1px 3px 1px 0; background:#fff; white-space:nowrap; }
 .grantchip.never { color:var(--deny); border-color:var(--deny); background:#FBF1F0; }
 .notrun { color:var(--muted); font-size:11px; }
+
+/* ── setup folder ─────────────────────────────────────────── */
+.checkrow { display:flex; gap:9px; align-items:flex-start; margin-top:14px; }
+.checkrow input { width:auto; margin-top:3px; }
+.checkrow span { font-size:12px; color:var(--muted); }
+.checkrow b { color:var(--ink); }
+.snippet { font:12px/1.7 var(--mono); background:var(--ink); color:#DCE4EC;
+  border-radius:8px; padding:14px 16px; overflow-x:auto; white-space:pre;
+  margin:0 0 4px; }

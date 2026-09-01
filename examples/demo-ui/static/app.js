@@ -2,6 +2,8 @@
 
 let mode = "observe";
 let REGISTRY = [];
+let CONFIG = null;        // /demo/config view
+let adminToken = null;    // provisioning token typed in Setup, kept client-side
 
 // ── folder tabs (hash-routed) ───────────────────────────────────────────────
 const VIEWS = ["authorize", "ledger", "parser"];
@@ -14,18 +16,24 @@ function showView(name) {
     else a.removeAttribute("aria-current");
   });
   if (name === "ledger") refreshAudit();
+  if (name === "setup") loadConfig();
 }
 window.addEventListener("hashchange", () => showView(location.hash.slice(1)));
 
 // ── mode toggle ─────────────────────────────────────────────────────────────
-const MODE_HINTS = {
-  observe: "observe: every call goes through, but the ledger records what enforce would do",
-  enforce: "enforce: real denials — outside-intent and malformed calls are refused",
-};
+// mode "" means: send no override, let the server default (Setup folder) decide.
+function modeHint() {
+  const hints = {
+    observe: "observe: every call goes through, but the ledger records what enforce would do",
+    enforce: "enforce: real denials — outside-intent and malformed calls are refused",
+    "": `server default: whatever Setup says (currently ${CONFIG ? CONFIG.mode : "…"})`,
+  };
+  return hints[mode];
+}
 document.querySelectorAll("#modeSwitch button").forEach(b => b.onclick = () => {
   mode = b.dataset.mode;
   document.querySelectorAll("#modeSwitch button").forEach(x => x.classList.toggle("on", x === b));
-  document.getElementById("modeHint").textContent = MODE_HINTS[mode];
+  document.getElementById("modeHint").textContent = modeHint();
 });
 
 // ── registry + tool constraints ─────────────────────────────────────────────
@@ -163,7 +171,15 @@ async function provision() {
     subject: document.getElementById("subject").value,
     allowed_actions,
   };
-  const r = await fetch("/v1/sessions", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(body)});
+  const headers = {"content-type":"application/json"};
+  if (adminToken) headers["authorization"] = "Bearer " + adminToken;
+  const r = await fetch("/v1/sessions", {method:"POST", headers, body:JSON.stringify(body)});
+  if (r.status === 401 || r.status === 503) {
+    document.getElementById("provNote").innerHTML =
+      `✋ The write path refused this (${r.status}): provisioning auth is on. ` +
+      `Enter the token in the <a href="#setup">Setup</a> folder and it will be sent automatically.`;
+    return;
+  }
   const j = await r.json();
   document.getElementById("provNote").innerHTML =
     `✔ ${j.grants_written} grants written for <b>${body.subject}</b> — intent is now frozen for this session.`;
@@ -176,8 +192,9 @@ async function decide(tool, args) {
   const body = {
     session_id: document.getElementById("session").value,
     subject: document.getElementById("subject").value,
-    tool, arguments: args, mode_override: mode,
+    tool, arguments: args,
   };
+  if (mode) body.mode_override = mode;   // "" = use the server default from Setup
   const r = await fetch("/v1/decide", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(body)});
   const v = await r.json();
   const detail = await refreshAudit(v.decision_id);
@@ -354,8 +371,119 @@ async function runParserEval(tag){
 evalButtons[0].onclick = () => runParserEval("smoke");
 evalButtons[1].onclick = () => runParserEval(null);
 
+// ── setup folder: live engine configuration ─────────────────────────────────
+function fillConfigForm(){
+  const c = CONFIG;
+  document.getElementById("cfgMode").value = c.mode;
+  document.getElementById("cfgAllowlist").checked = c.enforce_tool_allowlist;
+  document.getElementById("cfgTrust").checked = c.trust_explicit_resource;
+  document.getElementById("cfgTimeout").value = c.pdp_timeout_seconds;
+  document.getElementById("cfgEscalatable").value = c.escalatable_tools.join(", ");
+  document.getElementById("cfgParser").value = c.intent_parser;
+  document.getElementById("cfgParserAnthropic").textContent =
+    `anthropic — live extraction (key ${c.anthropic_key_loaded ? "loaded" : "NOT loaded"})`;
+  document.getElementById("cfgRequireAuth").checked = c.require_provisioning_auth;
+  document.getElementById("cfgToken").placeholder =
+    c.provisioning_token_set ? "token is set — type to replace" : "leave blank to keep unset";
+  document.getElementById("modeHint").textContent = modeHint();
+  renderSnippet();
+}
+
+function renderSnippet(){
+  const c = CONFIG;
+  const lines = [`export INTENTGUARD_MODE=${c.mode}`];
+  if (!c.enforce_tool_allowlist) lines.push("export INTENTGUARD_ENFORCE_TOOL_ALLOWLIST=false");
+  if (c.trust_explicit_resource) lines.push("export INTENTGUARD_TRUST_EXPLICIT_RESOURCE=true");
+  if (c.pdp_timeout_seconds !== 2) lines.push(`export INTENTGUARD_PDP_TIMEOUT_SECONDS=${c.pdp_timeout_seconds}`);
+  if (c.escalatable_tools.length) lines.push(`export INTENTGUARD_ESCALATABLE_TOOLS=${c.escalatable_tools.join(",")}`);
+  if (c.intent_parser !== "mock") lines.push(`export INTENTGUARD_INTENT_PARSER=${c.intent_parser}`);
+  if (c.require_provisioning_auth) lines.push("export INTENTGUARD_REQUIRE_PROVISIONING_AUTH=true");
+  if (c.provisioning_token_set) lines.push("export INTENTGUARD_PROVISIONING_TOKEN=<your-secret>   # rotate regularly, never commit");
+  lines.push("");
+  lines.push("# Custom registry: save the Tool registry JSON below to a file, then:");
+  lines.push("# export INTENTGUARD_TOOL_REGISTRY_PATH=/etc/intentguard/tools.json");
+  lines.push("");
+  lines.push("# Fixed while the demo runs — set for a real deployment:");
+  lines.push("# export INTENTGUARD_BACKEND=openfga            # docker compose up -d && python -m engine.pdp.bootstrap");
+  lines.push("# export INTENTGUARD_OPENFGA_STORE_ID=...");
+  lines.push("# export INTENTGUARD_OPENFGA_MODEL_ID=...");
+  lines.push("# export INTENTGUARD_AUDIT_PATH=/var/log/intentguard/audit.jsonl");
+  document.getElementById("envSnippet").textContent = lines.join("\n");
+}
+
+async function loadConfig(){
+  try {
+    CONFIG = await (await fetch("/demo/config")).json();
+    fillConfigForm();
+  } catch (e) {
+    document.getElementById("configStatus").textContent = "Could not load settings: " + e.message;
+  }
+}
+
+document.getElementById("applyConfig").onclick = async () => {
+  const status = document.getElementById("configStatus");
+  const body = {
+    mode: document.getElementById("cfgMode").value,
+    enforce_tool_allowlist: document.getElementById("cfgAllowlist").checked,
+    trust_explicit_resource: document.getElementById("cfgTrust").checked,
+    pdp_timeout_seconds: parseFloat(document.getElementById("cfgTimeout").value),
+    escalatable_tools: document.getElementById("cfgEscalatable").value
+      .split(",").map(s => s.trim()).filter(Boolean),
+    intent_parser: document.getElementById("cfgParser").value,
+    require_provisioning_auth: document.getElementById("cfgRequireAuth").checked,
+  };
+  const typedToken = document.getElementById("cfgToken").value.trim();
+  if (typedToken) body.provisioning_token = typedToken;
+  const r = await fetch("/demo/config", {method:"POST",
+    headers:{"content-type":"application/json"}, body:JSON.stringify(body)});
+  const j = await r.json();
+  if (!r.ok){ status.textContent = j.detail || "Settings were not applied."; return; }
+  CONFIG = j;
+  if (typedToken){ adminToken = typedToken; document.getElementById("cfgToken").value = ""; }
+  fillConfigForm();
+  status.textContent = "Applied — the engine is now running with these settings.";
+  if (j.require_provisioning_auth && !j.provisioning_token_set)
+    status.textContent += " Note: auth is required but no token is set, so all provisioning is refused (fail closed).";
+};
+
+document.getElementById("copySnippet").onclick = async () => {
+  const note = document.getElementById("copyStatus");
+  try {
+    await navigator.clipboard.writeText(document.getElementById("envSnippet").textContent);
+    note.textContent = "Copied.";
+  } catch (e) { note.textContent = "Copy failed — select the block and copy manually."; }
+  setTimeout(() => { note.textContent = ""; }, 2500);
+};
+
+// ── setup folder: registry editor ───────────────────────────────────────────
+async function loadRegistryEditor(){
+  const j = await (await fetch("/demo/registry")).json();
+  document.getElementById("registryJson").value = JSON.stringify(j, null, 2);
+}
+
+document.getElementById("applyRegistry").onclick = async () => {
+  const status = document.getElementById("registryStatus");
+  let parsed;
+  try { parsed = JSON.parse(document.getElementById("registryJson").value); }
+  catch (e) { status.textContent = "Not valid JSON: " + e.message; return; }
+  const r = await fetch("/demo/config/registry", {method:"POST",
+    headers:{"content-type":"application/json"}, body:JSON.stringify(parsed)});
+  const j = await r.json();
+  if (!r.ok){ status.textContent = j.detail || "Registry was not applied."; return; }
+  status.textContent = `Applied — the engine now knows ${j.tools.length} tools: ${j.tools.join(", ")}.`;
+  loadRegistry();        // Authorize folder picks up the new tools + constraints
+  loadRegistryEditor();
+};
+
+document.getElementById("reloadRegistry").onclick = () => {
+  loadRegistryEditor();
+  document.getElementById("registryStatus").textContent = "Reset to the running registry.";
+};
+
 // ── boot ────────────────────────────────────────────────────────────────────
 showView(location.hash.slice(1) || "authorize");
 loadRegistry();
 refreshAudit();
 loadEvalCases();
+loadConfig();
+loadRegistryEditor();

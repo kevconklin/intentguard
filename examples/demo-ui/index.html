@@ -17,6 +17,7 @@
     <div class="switch" id="modeSwitch" role="group" aria-label="Enforcement mode">
       <button data-mode="observe" class="on">observe</button>
       <button data-mode="enforce">enforce</button>
+      <button data-mode="">server default</button>
     </div>
     <span class="hint" id="modeHint">observe: every call goes through, but the ledger records what enforce would do</span>
   </div>
@@ -26,6 +27,7 @@
   <a href="#authorize" data-view="authorize" aria-current="page">Authorize</a>
   <a href="#ledger" data-view="ledger">Ledger</a>
   <a href="#parser" data-view="parser">Parser lab</a>
+  <a href="#setup" data-view="setup">Setup</a>
 </nav>
 
 <!-- ═══ FOLDER 1 · AUTHORIZE ═══════════════════════════════════ -->
@@ -159,6 +161,87 @@
         <thead><tr><th>case</th><th>the request</th><th>should grant</th><th>must never grant</th><th>result</th></tr></thead>
         <tbody id="evalRows"><tr><td colspan="5" class="note">Loading the case set…</td></tr></tbody>
       </table>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- ═══ FOLDER 4 · SETUP ═══════════════════════════════════════ -->
+<div class="view" id="view-setup">
+  <div class="sheet">
+    <div class="cols">
+      <section class="panel trusted" aria-labelledby="h-settings">
+        <div class="zone">▚ operator · engine settings</div>
+        <h2 id="h-settings">Engine settings</h2>
+        <div class="sub">Applied immediately: the demo rebuilds its in-process engine with the
+          new configuration, and grants and the ledger carry over. In a real deployment these
+          are environment variables — the deployment block on the right stays in sync.</div>
+
+        <label for="cfgMode">Default mode</label>
+        <select id="cfgMode">
+          <option value="observe">observe — allow everything, record what enforce would do</option>
+          <option value="enforce">enforce — real denials, fail closed</option>
+        </select>
+        <div class="note">The Authorize folder's switch can still override this per call;
+          its "server default" position uses this setting.</div>
+
+        <div class="checkrow"><input type="checkbox" id="cfgAllowlist" checked />
+          <span><b>Enforce the tool allowlist</b> — a tool missing from the registry is denied
+          <code>unknown_tool</code> before any store lookup. Leave on.</span></div>
+
+        <div class="checkrow"><input type="checkbox" id="cfgTrust" />
+          <span><b>Trust the explicit <code>resource</code> field</b> — only if the caller of
+          <code>/v1/decide</code> is fully trusted; otherwise a request could claim a granted
+          resource while its arguments target another.</span></div>
+
+        <label for="cfgTimeout">Decision timeout (seconds) — on timeout, enforce mode denies fail-closed</label>
+        <input id="cfgTimeout" type="number" min="0.1" max="60" step="0.1" value="2" />
+
+        <label for="cfgEscalatable">Escalatable tools — out-of-intent calls ask a human instead of a hard deny (comma-separated)</label>
+        <input id="cfgEscalatable" placeholder="email.send, file.write" />
+
+        <label for="cfgParser">Intent parser (used by <code>POST /v1/sessions:parse</code>)</label>
+        <select id="cfgParser">
+          <option value="mock">mock — deterministic, no network</option>
+          <option value="anthropic" id="cfgParserAnthropic">anthropic — live extraction</option>
+        </select>
+
+        <div class="checkrow"><input type="checkbox" id="cfgRequireAuth" />
+          <span><b>Require provisioning auth</b> — the write path refuses requests without a
+          bearer token (fail closed).</span></div>
+        <label for="cfgToken">Provisioning token — the Authorize folder will send it automatically once set</label>
+        <input id="cfgToken" type="password" placeholder="leave blank to keep unset" autocomplete="off" />
+
+        <button class="act" id="applyConfig">Apply settings</button>
+        <span class="evalnote" id="configStatus" aria-live="polite"></span>
+      </section>
+
+      <section class="panel" aria-labelledby="h-deploy">
+        <div class="zone">▚ operator · deployment</div>
+        <h2 id="h-deploy">Deployment variables</h2>
+        <div class="sub">The running configuration as environment variables, ready for a real
+          deployment of <code>uvicorn engine.api.server:app</code>. The commented lines are the
+          settings a demo can't change while running: the policy store, the audit file, and the
+          registry file path.</div>
+        <pre class="snippet" id="envSnippet">Loading…</pre>
+        <button class="act ghost" id="copySnippet">Copy variables</button>
+        <span class="evalnote" id="copyStatus" aria-live="polite"></span>
+      </section>
+    </div>
+
+    <section class="panel" style="margin-top:20px" aria-labelledby="h-registry">
+      <div class="zone">▚ operator · tool registry</div>
+      <h2 id="h-registry">Tool registry</h2>
+      <div class="sub">The allowlist, per-tool resource binding, and argument constraints the
+        engine runs with — the admin's main ongoing configuration surface. Edit the JSON and
+        apply: it validates first (unknown types, bad regex, and duplicate tools are rejected
+        with the reason) and takes effect live across every folder. For deployment, save this
+        JSON to a file and set <code>INTENTGUARD_TOOL_REGISTRY_PATH</code>.</div>
+      <textarea id="registryJson" spellcheck="false" style="min-height:260px"></textarea>
+      <div class="btnrow">
+        <button class="act" id="applyRegistry">Validate and apply registry</button>
+        <button class="act ghost" id="reloadRegistry">Reset to running registry</button>
+        <span class="evalnote" id="registryStatus" aria-live="polite"></span>
       </div>
     </section>
   </div>

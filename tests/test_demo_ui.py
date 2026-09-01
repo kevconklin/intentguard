@@ -58,6 +58,112 @@ async def test_demo_eval_cases_route():
         assert any("smoke" in c["tags"] for c in cases)
 
 
+def _client(app):
+    return httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://t"
+    )
+
+
+async def test_demo_config_get_and_live_apply():
+    app = _load_app()
+    async with _client(app) as client:
+        cfg = (await client.get("/demo/config")).json()
+        assert cfg["mode"] == "observe"
+        assert cfg["backend"] == "memory"
+        assert cfg["provisioning_token_set"] is False
+
+        # Apply live settings: the engine app is rebuilt and swapped in place.
+        r = await client.post(
+            "/demo/config",
+            json={"mode": "enforce", "escalatable_tools": ["email.send"]},
+        )
+        assert r.status_code == 200
+        assert r.json()["mode"] == "enforce"
+        assert r.json()["escalatable_tools"] == ["email.send"]
+        health = (await client.get("/healthz")).json()
+        assert health["mode"] == "enforce"
+
+
+async def test_demo_config_swap_preserves_state():
+    app = _load_app()
+    async with _client(app) as client:
+        await client.post(
+            "/v1/sessions",
+            json={
+                "session_id": "s-cfg",
+                "subject": "user:a",
+                "allowed_actions": [
+                    {"tool": "email.send", "resource": "bob@example.com"}
+                ],
+            },
+        )
+        await client.post("/demo/config", json={"mode": "enforce"})
+        # Grants written before the swap still authorize calls after it.
+        r = await client.post(
+            "/v1/decide",
+            json={
+                "session_id": "s-cfg",
+                "subject": "user:a",
+                "tool": "email.send",
+                "arguments": {"to": "bob@example.com"},
+            },
+        )
+        assert r.json()["decision"] == "allow"
+
+
+async def test_demo_config_rejects_bad_values():
+    app = _load_app()
+    async with _client(app) as client:
+        assert (
+            await client.post("/demo/config", json={"mode": "yolo"})
+        ).status_code == 400
+        assert (
+            await client.post("/demo/config", json={"pdp_timeout_seconds": -1})
+        ).status_code == 400
+
+
+async def test_demo_registry_apply_and_reject():
+    app = _load_app()
+    async with _client(app) as client:
+        bad = {
+            "tools": [{"name": "t", "arguments": [{"name": "x", "pattern": "[oops"}]}]
+        }
+        r = await client.post("/demo/config/registry", json=bad)
+        assert r.status_code == 400
+        assert "registry rejected" in r.json()["detail"]
+
+        good = {"tools": [{"name": "slack.post", "resource_arg": "channel"}]}
+        r = await client.post("/demo/config/registry", json=good)
+        assert r.status_code == 200
+        assert r.json()["tools"] == ["slack.post"]
+        # The registry route now serves the live registry, not the bundled file.
+        assert (await client.get("/demo/registry")).json() == good
+        # The engine actually runs with it: email.send is now unknown.
+        d = await client.post(
+            "/v1/decide",
+            json={
+                "session_id": "s",
+                "subject": "user:a",
+                "tool": "email.send",
+                "arguments": {"to": "b@x.com"},
+                "mode_override": "enforce",
+            },
+        )
+        assert d.json()["reason"] == "unknown_tool"
+
+
+async def test_demo_provisioning_token_enforced_live():
+    app = _load_app()
+    async with _client(app) as client:
+        await client.post("/demo/config", json={"provisioning_token": "sekrit"})
+        body = {"session_id": "s2", "subject": "user:a", "allowed_actions": []}
+        assert (await client.post("/v1/sessions", json=body)).status_code == 401
+        ok = await client.post(
+            "/v1/sessions", json=body, headers={"authorization": "Bearer sekrit"}
+        )
+        assert ok.status_code == 200
+
+
 async def test_demo_eval_run_requires_key(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     app = _load_app()
