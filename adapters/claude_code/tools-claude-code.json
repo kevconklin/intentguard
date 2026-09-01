@@ -1,0 +1,100 @@
+{
+  "tools": [
+    {
+      "name": "Bash",
+      "description": "Run a shell command. Binds to any resource: a command line has no single resource to grant on, so scope Bash via escalatable_tools (every call asks the human) until pattern grants exist.",
+      "resource_arg": null,
+      "arguments": [
+        { "name": "command", "type": "string", "required": true }
+      ]
+    },
+    {
+      "name": "Read",
+      "description": "Read a file",
+      "resource_arg": "file_path",
+      "arguments": [
+        { "name": "file_path", "type": "string", "max_length": 4096 }
+      ]
+    },
+    {
+      "name": "Write",
+      "description": "Write a file",
+      "resource_arg": "file_path",
+      "arguments": [
+        { "name": "file_path", "type": "string", "max_length": 4096 },
+        { "name": "content", "type": "string" }
+      ]
+    },
+    {
+      "name": "Edit",
+      "description": "Edit a file in place",
+      "resource_arg": "file_path",
+      "arguments": [
+        { "name": "file_path", "type": "string", "max_length": 4096 }
+      ]
+    },
+    {
+      "name": "NotebookEdit",
+      "description": "Edit a Jupyter notebook",
+      "resource_arg": "notebook_path",
+      "arguments": [
+        { "name": "notebook_path", "type": "string", "max_length": 4096 }
+      ]
+    },
+    {
+      "name": "Glob",
+      "description": "Find files by pattern (read-only)",
+      "resource_arg": null,
+      "arguments": [
+        { "name": "pattern", "type": "string" }
+      ]
+    },
+    {
+      "name": "Grep",
+      "description": "Search file contents (read-only)",
+      "resource_arg": null,
+      "arguments": [
+        { "name": "pattern", "type": "string" }
+      ]
+    },
+    {
+      "name": "WebFetch",
+      "description": "Fetch a URL",
+      "resource_arg": "url",
+      "arguments": [
+        { "name": "url", "type": "string", "pattern": "https?://\\S+", "max_length": 2048 }
+      ]
+    },
+    {
+      "name": "WebSearch",
+      "description": "Search the web",
+      "resource_arg": null,
+      "arguments": [
+        { "name": "query", "type": "string" }
+      ]
+    },
+    {
+      "name": "Task",
+      "description": "Spawn a subagent",
+      "resource_arg": null
+    },
+    {
+      "name": "Agent",
+      "description": "Spawn a subagent",
+      "resource_arg": null
+    },
+    {
+      "name": "TodoWrite",
+      "description": "Update the task list (harmless bookkeeping)",
+      "resource_arg": null
+    },
+    {
+      "name": "Skill",
+      "description": "Invoke a skill",
+      "resource_arg": "skill",
+      "arguments": [
+        { "name": "skill", "type": "string" }
+      ]
+    }
+  ]
+}
