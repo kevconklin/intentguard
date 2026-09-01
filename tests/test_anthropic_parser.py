@@ -139,3 +139,14 @@ async def test_live_anthropic_extraction():
     tools = {a.tool for a in intent.allowed_actions}
     assert "email.send" in tools
     assert "calendar.read" in tools
+
+
+def test_workspace_header_for_identity_linked_keys(monkeypatch):
+    # Identity-linked API keys need anthropic-workspace-id on every request;
+    # ordinary keys must get no extra headers.
+    from engine.intent.anthropic import _workspace_headers
+
+    monkeypatch.delenv("ANTHROPIC_WORKSPACE_ID", raising=False)
+    assert _workspace_headers() is None
+    monkeypatch.setenv("ANTHROPIC_WORKSPACE_ID", " wrkspc_123 ")
+    assert _workspace_headers() == {"anthropic-workspace-id": "wrkspc_123"}

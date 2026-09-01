@@ -80,6 +80,17 @@ SYSTEM_PROMPT = (
 )
 
 
+def _workspace_headers() -> Optional[dict[str, str]]:
+    """Extra headers for the Anthropic client.
+
+    Identity-linked API keys require an ``anthropic-workspace-id`` header naming
+    the workspace the request acts in; set ANTHROPIC_WORKSPACE_ID to supply it.
+    Returns None for ordinary keys.
+    """
+    workspace = os.environ.get("ANTHROPIC_WORKSPACE_ID", "").strip()
+    return {"anthropic-workspace-id": workspace} if workspace else None
+
+
 def _build_intent_tool(tool_names: list[str]) -> dict:
     """Copy the tool schema and constrain the tool enum to the known tools."""
     tool = copy.deepcopy(INTENT_TOOL)
@@ -156,7 +167,9 @@ class AnthropicIntentParser:
         if self._client is None:
             from anthropic import AsyncAnthropic  # lazy, optional dependency
 
-            self._client = AsyncAnthropic(api_key=self._api_key)
+            self._client = AsyncAnthropic(
+                api_key=self._api_key, default_headers=_workspace_headers()
+            )
         return self._client
 
     async def _anthropic_extract(
