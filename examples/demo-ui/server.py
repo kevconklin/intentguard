@@ -4,8 +4,11 @@ Serves the single static page SAME-ORIGIN with the engine's HTTP API (so the
 browser's fetch() calls hit /v1/decide etc. with no CORS setup). The engine runs
 in-process with the in-memory backend — no OpenFGA, no API key, no LLM.
 
-    python examples/demo-ui/server.py            # http://localhost:8000
+    python examples/demo-ui/server.py            # http://127.0.0.1:5050
     PORT=9000 python examples/demo-ui/server.py
+
+The default port avoids 5000/7000, which macOS AirPlay Receiver occupies (it
+answers 403 on IPv6 localhost, shadowing anything bound to IPv4 only).
 
 This is an OPT-IN example. It does not modify the core engine; it just composes
 the existing FastAPI app and adds one route to serve index.html.
@@ -13,6 +16,7 @@ the existing FastAPI app and adds one route to serve index.html.
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 
@@ -23,6 +27,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 
 from engine.api.app import create_app  # noqa: E402
 from engine.config import EngineConfig  # noqa: E402
+from engine.pdp.registry import DEFAULT_REGISTRY_PATH  # noqa: E402
 from engine.schema import Mode  # noqa: E402
 
 HERE = os.path.dirname(__file__)
@@ -37,7 +42,16 @@ def index() -> FileResponse:
     return FileResponse(os.path.join(HERE, "index.html"))
 
 
+@app.get("/demo/registry")
+def registry() -> dict:
+    """The bundled tool registry, so the UI can display each tool's declared
+    resource binding and argument constraints. Demo-only route."""
+    return json.loads(DEFAULT_REGISTRY_PATH.read_text(encoding="utf-8"))
+
+
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", "5000"))
-    print(f"IntentGuard demo UI -> http://localhost:{port}")
+    port = int(os.environ.get("PORT", "5050"))
+    # Print the numeric address: on macOS, "localhost" can resolve to ::1 and
+    # hit another service (e.g. AirPlay on 5000/7000) instead of this server.
+    print(f"IntentGuard demo UI -> http://127.0.0.1:{port}")
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")

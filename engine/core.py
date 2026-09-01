@@ -42,6 +42,12 @@ async def _evaluate_enforce(
     ):
         return Decision.deny, Reason.unknown_tool, None
 
+    # Argument-shape gate: deterministic, pre-store. A declared constraint the
+    # call violates is a deny; the violation detail lands in the audit record.
+    violation = config.tool_registry.validate_arguments(request.tool, request.arguments)
+    if violation is not None:
+        return Decision.deny, Reason.invalid_arguments, violation
+
     # Fail closed when a required resource argument is missing: we cannot bind the
     # call to a specific grant, so we do not let it match an "any" grant.
     if not resource_complete:
