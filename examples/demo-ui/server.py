@@ -13,6 +13,7 @@ the existing FastAPI app and adds one route to serve index.html.
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 
@@ -23,6 +24,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 
 from engine.api.app import create_app  # noqa: E402
 from engine.config import EngineConfig  # noqa: E402
+from engine.pdp.registry import DEFAULT_REGISTRY_PATH  # noqa: E402
 from engine.schema import Mode  # noqa: E402
 
 HERE = os.path.dirname(__file__)
@@ -35,6 +37,13 @@ app = create_app(config=EngineConfig(mode=Mode.observe, backend="memory"))
 @app.get("/")
 def index() -> FileResponse:
     return FileResponse(os.path.join(HERE, "index.html"))
+
+
+@app.get("/demo/registry")
+def registry() -> dict:
+    """The bundled tool registry, so the UI can display each tool's declared
+    resource binding and argument constraints. Demo-only route."""
+    return json.loads(DEFAULT_REGISTRY_PATH.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
