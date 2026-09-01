@@ -41,8 +41,15 @@ lint = [
     "pip-audit>=2.7",
 ]
 
+[project.scripts]
+intentguard = "adapters.claude_code.cli:main"
+
 [tool.setuptools.packages.find]
 include = ["engine*", "adapters*"]
+
+[tool.setuptools.package-data]
+"adapters.claude_code" = ["*.json"]
+"engine.pdp" = ["*.json", "*.fga"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
