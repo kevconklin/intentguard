@@ -26,6 +26,7 @@ from typing import Optional
 import uvicorn
 from fastapi import HTTPException
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
@@ -78,6 +79,13 @@ app = create_app(config=EngineConfig(mode=Mode.observe, backend="memory"))
 @app.get("/")
 def index() -> FileResponse:
     return FileResponse(os.path.join(HERE, "index.html"))
+
+
+app.mount(
+    "/demo/static",
+    StaticFiles(directory=os.path.join(HERE, "static")),
+    name="demo_static",
+)
 
 
 @app.get("/demo/registry")

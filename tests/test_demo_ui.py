@@ -25,8 +25,16 @@ async def test_demo_ui_serves_page_and_registry():
     ) as client:
         page = await client.get("/")
         assert page.status_code == 200
-        # The page documents the argument-validation gate for users.
+        # The three folders and the argument-validation explainer are present.
+        assert "Parser lab" in page.text
         assert "invalid_arguments" in page.text
+
+        for path in ("/demo/static/styles.css", "/demo/static/app.js"):
+            asset = await client.get(path)
+            assert asset.status_code == 200, path
+        # The decision-reason explainer lives in the behavior file.
+        js = await client.get("/demo/static/app.js")
+        assert "invalid_arguments" in js.text
 
         reg = await client.get("/demo/registry")
         assert reg.status_code == 200
