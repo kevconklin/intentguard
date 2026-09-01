@@ -106,3 +106,34 @@ jobs:
         env:
           INTENTGUARD_TEST_OPENFGA_URL: http://localhost:8080
         run: pytest tests/test_openfga_integration.py -v
+
+  parser-eval:
+    # Parse-quality eval against the live Anthropic parser (issue #24).
+    # Runs only when the ANTHROPIC_API_KEY secret exists; non-blocking because
+    # the metric is nondeterministic — the report is the signal, thresholds
+    # gate `python -m evals.harness` locally.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install (with the anthropic extra)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,anthropic]"
+
+      - name: Run parser eval
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::notice::ANTHROPIC_API_KEY not set — parser eval skipped."
+            exit 0
+          fi
+          python -m evals.harness
