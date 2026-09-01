@@ -1,10 +1,52 @@
 {
   "tools": [
-    { "name": "email.send",     "description": "Send an email",            "resource_arg": "to" },
-    { "name": "calendar.read",  "description": "Read calendar events",     "resource_arg": null },
-    { "name": "calendar.create","description": "Create a calendar event",  "resource_arg": "calendar" },
-    { "name": "http.get",       "description": "Perform an HTTP GET",       "resource_arg": "url" },
-    { "name": "file.read",      "description": "Read a file",              "resource_arg": "path" },
-    { "name": "file.write",     "description": "Write a file",             "resource_arg": "path" }
+    {
+      "name": "email.send",
+      "description": "Send an email",
+      "resource_arg": "to",
+      "arguments": [
+        { "name": "to", "pattern": "[^@\\s]+@[^@\\s]+" },
+        { "name": "subject", "type": "string", "max_length": 998 },
+        { "name": "body", "type": "string" }
+      ]
+    },
+    {
+      "name": "calendar.read",
+      "description": "Read calendar events",
+      "resource_arg": null
+    },
+    {
+      "name": "calendar.create",
+      "description": "Create a calendar event",
+      "resource_arg": "calendar",
+      "arguments": [
+        { "name": "calendar", "type": "string", "max_length": 256 }
+      ]
+    },
+    {
+      "name": "http.get",
+      "description": "Perform an HTTP GET",
+      "resource_arg": "url",
+      "arguments": [
+        { "name": "url", "type": "string", "pattern": "https?://\\S+", "max_length": 2048 }
+      ]
+    },
+    {
+      "name": "file.read",
+      "description": "Read a file",
+      "resource_arg": "path",
+      "arguments": [
+        { "name": "path", "type": "string", "max_length": 4096 }
+      ]
+    },
+    {
+      "name": "file.write",
+      "description": "Write a file",
+      "resource_arg": "path",
+      "arguments": [
+        { "name": "path", "type": "string", "max_length": 4096 },
+        { "name": "content", "type": "string" }
+      ]
+    }
   ]
 }

@@ -112,8 +112,21 @@ argument key(s) that carry the security-relevant **resource**:
 - none → the tool binds to "any resource" (e.g. `calendar.read`).
 
 The registry is also an **allowlist**: a tool not in it is denied `unknown_tool`
-before any store lookup (deterministic, no session needed). Both gates run on the
-decision path and honor observe mode.
+before any store lookup (deterministic, no session needed).
+
+Each `ToolSpec` may also declare **argument-level constraints** (`arguments`, a
+list of `ArgSpec`): `type`, `enum`, `pattern` (regex, full match, strings only),
+`max_length`, and `required`. A declared argument that is present and violates
+its constraint — or a `required` one that is missing/blank — is denied
+`invalid_arguments`, with the specific violation (e.g. `wrong_type:url`)
+recorded in the audit entry's `error` field. Undeclared arguments are never
+rejected, so free-form fields (an email body) pass untouched. Regex patterns are
+validated at config-load time, so a bad pattern can never raise on the decision
+path.
+
+The deterministic pre-store gates run in order — `unknown_tool` →
+`invalid_arguments` → `missing_resource` — before any policy-store lookup. All
+of them run on the decision path and honor observe mode.
 
 ## Intent parsing (the trusted, once-per-request LLM step)
 

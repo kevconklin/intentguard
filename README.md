@@ -131,7 +131,7 @@ uvicorn engine.api.server:app
 
 // response
 { "schema_version":"1", "decision":"allow|deny|escalate",
-  "reason":"in_intent|not_in_intent|no_session|unknown_tool|missing_resource|pdp_error_failclosed|escalated_for_review",
+  "reason":"in_intent|not_in_intent|no_session|unknown_tool|invalid_arguments|missing_resource|pdp_error_failclosed|escalated_for_review",
   "effective_mode":"observe|enforce",
   "would_have_decided":"...",      // present in observe mode
   "escalation_prompt":"...",       // present only when decision is escalate
@@ -199,7 +199,11 @@ entry to `engine/pdp/tools.json` (or your own file via `INTENTGUARD_TOOL_REGISTR
 
 ```jsonc
 { "name": "slack.post", "description": "Post to a Slack channel",
-  "resource_args": ["channel"] }   // the security-relevant argument(s)
+  "resource_args": ["channel"],    // the security-relevant argument(s)
+  "arguments": [                   // optional per-argument shape constraints
+    { "name": "channel", "pattern": "#[a-z0-9-]+" },
+    { "name": "thread_ts", "type": "string" }
+  ] }
 ```
 
 - `resource_args: []` (or omit) → the whole tool is bound to "any resource".
@@ -208,6 +212,13 @@ entry to `engine/pdp/tools.json` (or your own file via `INTENTGUARD_TOOL_REGISTR
   missing any one is denied (`missing_resource`, fail closed).
 - A tool **not** in the registry is denied (`unknown_tool`) — the allowlist is the
   outer gate. Disable with `INTENTGUARD_ENFORCE_TOOL_ALLOWLIST=false`.
+- `arguments` optionally constrains argument shape: `type` (`string`, `integer`,
+  `number`, `boolean`, `array`), `enum`, `pattern` (regex, full match, strings
+  only), `max_length`, `required`. A declared argument that is present and
+  violates its constraint is denied `invalid_arguments` before any store lookup;
+  undeclared arguments (e.g. an email body) are never rejected. Use
+  `resource_args` for a resource argument's *presence* and `arguments` for its
+  *shape*.
 
 ## Status
 

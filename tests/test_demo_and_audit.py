@@ -6,6 +6,8 @@ import importlib.util
 import pathlib
 
 from engine.audit import AuditLogger
+from engine.audit.owasp import _REASON_THREATS
+from engine.schema import Reason
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 DEMO_PATH = REPO_ROOT / "examples" / "demo-injection" / "demo.py"
@@ -17,6 +19,13 @@ async def test_injection_demo_runs_green():
     spec.loader.exec_module(demo)
     rc = await demo.run()
     assert rc == 0
+
+
+def test_every_reason_has_an_owasp_mapping():
+    # A Reason added without a threat mapping would silently tag zero threats
+    # in the audit log; catch that drift here.
+    missing = set(Reason) - set(_REASON_THREATS)
+    assert not missing, f"Reasons without an OWASP threat mapping: {missing}"
 
 
 def test_audit_log_is_append_only_on_disk(tmp_path):
