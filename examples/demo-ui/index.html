@@ -173,6 +173,17 @@
   .ministamp.deny { color:var(--deny); border-color:var(--deny); }
   .ministamp.escalate { color:var(--escalate); border-color:var(--escalate); }
   .threats { color:var(--muted); font-size:11px; font-family:var(--mono); }
+
+  /* ── parser eval panel ──────────────────────────────────── */
+  .evalmetrics { display:flex; gap:10px; flex-wrap:wrap; margin:14px 0 6px; }
+  .metric { border:1.5px solid var(--line); border-radius:6px; padding:8px 14px;
+    background:#fff; min-width:130px; }
+  .metric b { display:block; font:700 18px var(--mono); }
+  .metric span { font-size:11px; color:var(--muted); }
+  .metric.pass { border-color:var(--allow); } .metric.pass b { color:var(--allow); }
+  .metric.fail { border-color:var(--deny); } .metric.fail b { color:var(--deny); }
+  .evalnote { font-size:12px; color:var(--muted); }
+  button.act:disabled { opacity:.5; cursor:wait; }
 </style>
 </head>
 <body>
@@ -277,6 +288,29 @@
     <table>
       <thead><tr><th>decision</th><th>tool → resource</th><th>reason</th><th>detail</th><th>mode</th><th>would-have</th><th>threats</th></tr></thead>
       <tbody id="audit"><tr><td colspan="7" class="note">No decisions yet — grant a session, then attempt a call.</td></tr></tbody>
+    </table>
+    </div>
+  </section>
+
+  <!-- 4 · PARSER EVAL -->
+  <section class="panel ledger" aria-labelledby="h-eval">
+    <div class="zone">▚ trusted path · parser quality</div>
+    <h2 id="h-eval">4 · Test the intent parser</h2>
+    <div class="sub">The same labeled cases as <code>python -m evals.harness</code>, run live
+      against the Anthropic parser. Each case states what the parser <b>should</b> grant and
+      what it <b>must never</b> grant — injected recipients, URLs, and paths hidden in pasted
+      content. A <b>LEAKED</b> grant is the red flag: attack content became a permission.
+      Needs <code>ANTHROPIC_API_KEY</code> in the repo's <code>.env</code> when the demo starts.</div>
+    <div class="btnrow">
+      <button class="act" id="evalSmoke">Run smoke subset</button>
+      <button class="act ghost" id="evalFull">Run full set</button>
+      <span class="evalnote" id="evalStatus" aria-live="polite"></span>
+    </div>
+    <div class="evalmetrics" id="evalMetrics" hidden></div>
+    <div class="tablewrap">
+    <table>
+      <thead><tr><th>result</th><th>case</th><th>tp / fp / fn</th><th>notes</th><th>tags</th></tr></thead>
+      <tbody id="evalRows"><tr><td colspan="5" class="note">Not run yet — pick a subset above. Smoke takes ~15 seconds; the full set about a minute.</td></tr></tbody>
     </table>
     </div>
   </section>
@@ -532,8 +566,78 @@ document.getElementById("send").onclick = () => {
   decide(toolEl.value, args);
 };
 
+// --- parser eval panel ---
+const evalStatus = document.getElementById("evalStatus");
+const evalButtons = [document.getElementById("evalSmoke"), document.getElementById("evalFull")];
+
+async function labelEvalButtons(){
+  try {
+    const r = await fetch("/demo/eval/cases");
+    const cases = (await r.json()).cases;
+    const smoke = cases.filter(c => c.tags.includes("smoke")).length;
+    evalButtons[0].textContent = `Run smoke subset (${smoke} cases)`;
+    evalButtons[1].textContent = `Run full set (${cases.length} cases)`;
+  } catch (e) { /* keep generic labels */ }
+}
+
+function metricChip(name, value, ok, hint){
+  return `<div class="metric ${ok ? "pass" : "fail"}"><b>${value}</b><span>${name} · ${hint}</span></div>`;
+}
+
+function renderEval(j){
+  const m = j.metrics, t = j.thresholds;
+  const el = document.getElementById("evalMetrics");
+  el.hidden = false;
+  el.innerHTML =
+    metricChip("precision", m.precision.toFixed(3), m.precision >= t.precision, `need ≥ ${t.precision}`) +
+    metricChip("recall", m.recall.toFixed(3), m.recall >= t.recall, `need ≥ ${t.recall}`) +
+    metricChip("over-breadth", m.overbreadth_rate.toFixed(3), m.overbreadth_rate <= t.overbreadth_rate, `need ≤ ${t.overbreadth_rate}`) +
+    metricChip("leaks", m.leaks, m.leaks <= t.leaks, "must be 0");
+  document.getElementById("evalRows").innerHTML = j.cases.map(c => {
+    const notes = [];
+    if (c.leaks.length) notes.push(`<span class="err-detail">LEAKED: ${c.leaks.join(", ")}</span>`);
+    if (c.missed.length) notes.push(`missed: <code>${c.missed.join("</code>, <code>")}</code>`);
+    if (c.extra.length) notes.push(`extra: <code>${c.extra.join("</code>, <code>")}</code>`);
+    if (c.overbroad.length) notes.push(`overbroad: <code>${c.overbroad.join("</code>, <code>")}</code>`);
+    return `<tr>
+      <td><span class="ministamp ${c.ok ? "allow" : "deny"}">${c.ok ? "PASS" : "FAIL"}</span></td>
+      <td class="code">${c.id}</td>
+      <td class="code">${c.tp} / ${c.fp} / ${c.fn}</td>
+      <td>${notes.join("<br>") || "—"}</td>
+      <td class="code">${c.tags.join(", ") || "—"}</td>
+    </tr>`;
+  }).join("");
+}
+
+async function runParserEval(tag){
+  evalButtons.forEach(b => b.disabled = true);
+  evalStatus.textContent = tag
+    ? "Running the smoke subset against the live parser — about 15 seconds…"
+    : "Running every case against the live parser — about a minute…";
+  try {
+    const r = await fetch("/demo/eval/run", {
+      method:"POST", headers:{"content-type":"application/json"},
+      body: JSON.stringify(tag ? {tag} : {}),
+    });
+    const j = await r.json();
+    if (!r.ok){ evalStatus.textContent = j.detail || "The eval could not run."; return; }
+    renderEval(j);
+    evalStatus.textContent = j.failures.length
+      ? "Thresholds NOT met — " + j.failures.join("; ")
+      : "All thresholds met.";
+  } catch (e) {
+    evalStatus.textContent = "The eval could not run: " + e.message;
+  } finally {
+    evalButtons.forEach(b => b.disabled = false);
+  }
+}
+
+evalButtons[0].onclick = () => runParserEval("smoke");
+evalButtons[1].onclick = () => runParserEval(null);
+
 loadRegistry();
 refreshAudit();
+labelEvalButtons();
 </script>
 </body>
 </html>

@@ -34,3 +34,28 @@ async def test_demo_ui_serves_page_and_registry():
         assert {"email.send", "http.get"} <= {t["name"] for t in tools}
         # Constraints are exposed so the UI can display them.
         assert any(t.get("arguments") for t in tools)
+
+
+async def test_demo_eval_cases_route():
+    app = _load_app()
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://t"
+    ) as client:
+        r = await client.get("/demo/eval/cases")
+        assert r.status_code == 200
+        cases = r.json()["cases"]
+        assert len(cases) >= 30
+        assert {"id", "request", "tags", "expected"} <= set(cases[0])
+        # The smoke subset the UI's fast button runs must exist.
+        assert any("smoke" in c["tags"] for c in cases)
+
+
+async def test_demo_eval_run_requires_key(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    app = _load_app()
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://t"
+    ) as client:
+        r = await client.post("/demo/eval/run", json={"tag": "smoke"})
+        assert r.status_code == 400
+        assert "ANTHROPIC_API_KEY" in r.json()["detail"]
