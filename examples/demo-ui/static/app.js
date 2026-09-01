@@ -6,7 +6,7 @@ let CONFIG = null;        // /demo/config view
 let adminToken = null;    // provisioning token typed in Setup, kept client-side
 
 // ── folder tabs (hash-routed) ───────────────────────────────────────────────
-const VIEWS = ["authorize", "ledger", "parser"];
+const VIEWS = ["authorize", "ledger", "parser", "setup"];
 function showView(name) {
   if (!VIEWS.includes(name)) name = "authorize";
   document.querySelectorAll(".view").forEach(v =>

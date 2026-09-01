@@ -44,6 +44,25 @@ async def test_demo_ui_serves_page_and_registry():
         assert any(t.get("arguments") for t in tools)
 
 
+def test_nav_tabs_match_router_views():
+    """Every nav tab must be in the JS router's allowlist and have a container.
+
+    Regression: the Setup tab silently fell back to Authorize because the
+    router's VIEWS list wasn't updated when the folder was added.
+    """
+    import re
+
+    html = (REPO_ROOT / "examples" / "demo-ui" / "index.html").read_text("utf-8")
+    js = (REPO_ROOT / "examples" / "demo-ui" / "static" / "app.js").read_text("utf-8")
+    tabs = set(re.findall(r'data-view="([a-z]+)"', html))
+    assert tabs, "nav tabs not found in index.html"
+    views_line = re.search(r"const VIEWS = \[([^\]]+)\]", js).group(1)
+    views = set(re.findall(r'"([a-z]+)"', views_line))
+    assert tabs == views, f"nav tabs {tabs} != router views {views}"
+    for tab in tabs:
+        assert f'id="view-{tab}"' in html, f"missing container for view {tab!r}"
+
+
 async def test_demo_eval_cases_route():
     app = _load_app()
     async with httpx.AsyncClient(
