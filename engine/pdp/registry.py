@@ -118,8 +118,8 @@ def _is_blank(value: Any) -> bool:
 PATTERN_INPUT_CAP = 65536
 
 
-def _pattern_violation(arg: ArgSpec, value: Any) -> Optional[str]:
-    """Apply ``arg.pattern`` to a string or a list of strings (fail closed).
+def _pattern_violation(name: str, pattern: str, value: Any) -> Optional[str]:
+    """Apply ``pattern`` to a string or a list of strings (fail closed).
 
     A declared pattern implies a string-valued argument: any other type is a
     ``wrong_type`` violation rather than a silent pass, so non-string values
@@ -127,15 +127,15 @@ def _pattern_violation(arg: ArgSpec, value: Any) -> Optional[str]:
     match element-wise.
     """
     if not isinstance(value, (str, list, tuple)):
-        return f"wrong_type:{arg.name}"
+        return f"wrong_type:{name}"
     items = [value] if isinstance(value, str) else value
     for item in items:
         if not isinstance(item, str):
-            return f"pattern_mismatch:{arg.name}"
+            return f"pattern_mismatch:{name}"
         if len(item) > PATTERN_INPUT_CAP:
-            return f"too_long:{arg.name}"
-        if re.fullmatch(arg.pattern, item) is None:
-            return f"pattern_mismatch:{arg.name}"
+            return f"too_long:{name}"
+        if re.fullmatch(pattern, item) is None:
+            return f"pattern_mismatch:{name}"
     return None
 
 
@@ -163,7 +163,7 @@ def validate_arguments(spec: ToolSpec, arguments: dict[str, Any]) -> Optional[st
             if len(value) > arg.max_length:
                 return f"too_long:{arg.name}"
         if arg.pattern is not None:
-            violation = _pattern_violation(arg, value)
+            violation = _pattern_violation(arg.name, arg.pattern, value)
             if violation is not None:
                 return violation
     return None
