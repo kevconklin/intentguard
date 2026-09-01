@@ -213,8 +213,9 @@ entry to `engine/pdp/tools.json` (or your own file via `INTENTGUARD_TOOL_REGISTR
 - A tool **not** in the registry is denied (`unknown_tool`) — the allowlist is the
   outer gate. Disable with `INTENTGUARD_ENFORCE_TOOL_ALLOWLIST=false`.
 - `arguments` optionally constrains argument shape: `type` (`string`, `integer`,
-  `number`, `boolean`, `array`), `enum`, `pattern` (regex, full match, strings
-  only), `max_length`, `required`. A declared argument that is present and
+  `number`, `boolean`, `array`), `enum`, `pattern` (regex, full match, applied to
+  a string or element-wise to a list of strings; any other value type is a
+  `wrong_type` violation), `max_length`, `required`. A declared argument that is present and
   violates its constraint is denied `invalid_arguments` before any store lookup;
   undeclared arguments (e.g. an email body) are never rejected. Use
   `resource_args` for a resource argument's *presence* and `arguments` for its

@@ -115,8 +115,12 @@ The registry is also an **allowlist**: a tool not in it is denied `unknown_tool`
 before any store lookup (deterministic, no session needed).
 
 Each `ToolSpec` may also declare **argument-level constraints** (`arguments`, a
-list of `ArgSpec`): `type`, `enum`, `pattern` (regex, full match, strings only),
-`max_length`, and `required`. A declared argument that is present and violates
+list of `ArgSpec`): `type`, `enum`, `pattern` (regex, full match, applied to a
+string or element-wise to a list of strings — any other value type fails
+`wrong_type`, so non-strings cannot bypass the check), `max_length`, and
+`required`. `max_length` is checked before `pattern`, and a hard cap bounds the
+length of any string fed to a regex, so pattern cost on the hot path stays
+bounded even with a pathological operator-supplied pattern. A declared argument that is present and violates
 its constraint — or a `required` one that is missing/blank — is denied
 `invalid_arguments`, with the specific violation (e.g. `wrong_type:url`)
 recorded in the audit entry's `error` field. Undeclared arguments are never

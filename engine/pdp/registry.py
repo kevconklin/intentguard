@@ -112,12 +112,41 @@ def _is_blank(value: Any) -> bool:
     return value is None or (isinstance(value, str) and value.strip() == "")
 
 
+# Hard upper bound on the length of any string fed to a declared pattern,
+# regardless of ``max_length``: bounds regex cost on the decision hot path even
+# against a pathological operator-supplied pattern (fail closed).
+PATTERN_INPUT_CAP = 65536
+
+
+def _pattern_violation(arg: ArgSpec, value: Any) -> Optional[str]:
+    """Apply ``arg.pattern`` to a string or a list of strings (fail closed).
+
+    A declared pattern implies a string-valued argument: any other type is a
+    ``wrong_type`` violation rather than a silent pass, so non-string values
+    cannot bypass the shape check. List values (e.g. multiple recipients) must
+    match element-wise.
+    """
+    if not isinstance(value, (str, list, tuple)):
+        return f"wrong_type:{arg.name}"
+    items = [value] if isinstance(value, str) else value
+    for item in items:
+        if not isinstance(item, str):
+            return f"pattern_mismatch:{arg.name}"
+        if len(item) > PATTERN_INPUT_CAP:
+            return f"too_long:{arg.name}"
+        if re.fullmatch(arg.pattern, item) is None:
+            return f"pattern_mismatch:{arg.name}"
+    return None
+
+
 def validate_arguments(spec: ToolSpec, arguments: dict[str, Any]) -> Optional[str]:
     """Check a call's arguments against a tool's ``ArgSpec`` list.
 
     Returns ``None`` if every declared constraint holds, or a short,
     machine-friendly reason describing the first violation (fail closed). Pure
     and deterministic; a tool with no declared arguments always passes.
+    ``max_length`` is checked before ``pattern`` so a declared length limit
+    also bounds regex cost.
     """
     for arg in spec.arguments:
         present = arg.name in arguments and not _is_blank(arguments.get(arg.name))
@@ -130,15 +159,13 @@ def validate_arguments(spec: ToolSpec, arguments: dict[str, Any]) -> Optional[st
             return f"wrong_type:{arg.name}"
         if arg.enum is not None and value not in arg.enum:
             return f"not_in_enum:{arg.name}"
-        if (
-            arg.pattern is not None
-            and isinstance(value, str)
-            and re.fullmatch(arg.pattern, value) is None
-        ):
-            return f"pattern_mismatch:{arg.name}"
         if arg.max_length is not None and hasattr(value, "__len__"):
             if len(value) > arg.max_length:
                 return f"too_long:{arg.name}"
+        if arg.pattern is not None:
+            violation = _pattern_violation(arg, value)
+            if violation is not None:
+                return violation
     return None
 
 

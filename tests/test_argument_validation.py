@@ -90,11 +90,42 @@ def test_pattern_fullmatch():
     assert validate_arguments(spec, {"to": "a@b.com and more"}) == "pattern_mismatch:to"
 
 
-def test_pattern_skipped_for_non_string_values():
-    # Pattern applies to strings only; pair it with type="string" to also
-    # reject non-strings. Pinned so the semantics don't drift silently.
+def test_pattern_applies_to_every_list_element():
+    # A pattern-constrained argument accepts a list of matching strings
+    # (e.g. multiple email recipients); any non-matching element fails.
     spec = _spec(ArgSpec(name="to", pattern=r"[^@\s]+@[^@\s]+"))
     assert validate_arguments(spec, {"to": ["a@b.com", "c@d.com"]}) is None
+    assert (
+        validate_arguments(spec, {"to": ["a@b.com", "evil"]}) == "pattern_mismatch:to"
+    )
+    assert validate_arguments(spec, {"to": ["a@b.com", 42]}) == "pattern_mismatch:to"
+
+
+def test_pattern_rejects_non_string_non_list_values():
+    # A declared pattern implies a string-valued (or list-of-strings)
+    # argument: other types cannot silently bypass the shape check.
+    spec = _spec(ArgSpec(name="to", pattern=r"[^@\s]+@[^@\s]+"))
+    assert validate_arguments(spec, {"to": {"x": "y"}}) == "wrong_type:to"
+    assert validate_arguments(spec, {"to": 12345}) == "wrong_type:to"
+
+
+def test_max_length_checked_before_pattern():
+    # max_length must bound regex cost, so it runs first: an over-long value
+    # is rejected without ever reaching the regex engine.
+    spec = _spec(ArgSpec(name="v", pattern=r"x+", max_length=5))
+    assert validate_arguments(spec, {"v": "y" * 10}) == "too_long:v"
+
+
+def test_pattern_input_hard_cap():
+    # Even without a declared max_length, an absurdly long string is denied
+    # before any regex runs (fail closed, bounds decision-path cost).
+    from engine.pdp.registry import PATTERN_INPUT_CAP
+
+    spec = _spec(ArgSpec(name="v", pattern=r".*"))
+    assert (
+        validate_arguments(spec, {"v": "a" * (PATTERN_INPUT_CAP + 1)}) == "too_long:v"
+    )
+    assert validate_arguments(spec, {"v": "a" * 10}) is None
 
 
 def test_max_length_on_string_and_array():
@@ -188,6 +219,21 @@ def test_default_registry_constrains_url_shape():
         reg.validate_arguments("http.get", {"url": "javascript:alert(1)"})
         == "pattern_mismatch:url"
     )
+
+
+def test_default_registry_constrains_email_recipient():
+    # The recipient is the security-relevant resource argument; non-string
+    # values must not bypass its shape check (they'd flow into the grant
+    # identity unvalidated).
+    reg = default_registry()
+    assert reg.validate_arguments("email.send", {"to": "bob@example.com"}) is None
+    assert reg.validate_arguments("email.send", {"to": ["a@b.com", "c@d.com"]}) is None
+    assert (
+        reg.validate_arguments("email.send", {"to": "not-an-email"})
+        == "pattern_mismatch:to"
+    )
+    assert reg.validate_arguments("email.send", {"to": {"x": "y"}}) == "wrong_type:to"
+    assert reg.validate_arguments("email.send", {"to": 12345}) == "wrong_type:to"
 
 
 def test_default_registry_constrains_file_path_type():
